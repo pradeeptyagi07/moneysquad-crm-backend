@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Your Verification Code - Moneysquad</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f9f9f9;
+      color: #333;
+      padding: 20px;
+      margin: 0;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .logo {
+      font-size: 24px;
+      font-weight: bold;
+      color: #2c3e50;
+      margin-bottom: 10px;
+    }
+
+    .greeting {
+      font-size: 18px;
+      margin-bottom: 20px;
+    }
+
+    .content {
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+
+    .otp-section {
+      text-align: center;
+      margin: 30px 0;
+    }
+
+    .otp-label {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .otp-box {
+      font-size: 32px;
+      font-weight: bold;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 15px 20px;
+      border-radius: 8px;
+      display: inline-block;
+      letter-spacing: 6px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .validity {
+      font-size: 14px;
+      color: #e74c3c;
+      margin-top: 15px;
+      font-weight: 500;
+    }
+
+    .instructions {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      border-left: 4px solid #3498db;
+      margin: 20px 0;
+    }
+
+    .security-note {
+      background: #fff3cd;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid #ffc107;
+      margin: 20px 0;
+      font-size: 14px;
+    }
+
+    .footer {
+      border-top: 1px solid #eee;
+      padding-top: 20px;
+      margin-top: 30px;
+      font-size: 12px;
+      color: #888;
+    }
+
+    .company-name {
+      font-weight: bold;
+      color: #2c3e50;
+    }
+
+    .help-section {
+      margin-top: 20px;
+      font-size: 13px;
+      color: #666;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 20px;
+      }
+
+      .otp-box {
+        font-size: 24px;
+        letter-spacing: 4px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">Moneysquad</div>
+    </div>
+
+    <div class="greeting">
+      Hello <%= name %>,
+    </div>
+
+    <div class="content">
+      <p>We received a request for verification. Please use the following verification code to complete your request:
+      </p>
+    </div>
+
+    <div class="otp-section">
+      <div class="otp-label">Verification Code</div>
+      <div class="otp-box">
+        <%= password %>
+      </div>
+      <div class="validity">
+        This code is valid for the next 10 minutes.
+      </div>
+    </div>
+
+    <div class="instructions">
+      <strong>How to use this code:</strong>
+      <ol>
+        <li>Return to the verification page where you left off</li>
+        <li>Enter the verification code above</li>
+        <li>Click "Continue" or "Verify" to complete the process</li>
+      </ol>
+    </div>
+
+    <div class="security-note">
+      <strong>Security Notice:</strong>
+      If you didn't request this verification code, please ignore this email. For your security, never share this code
+      with anyone.
+    </div>
+
+    <div class="footer">
+      <p>Best regards,<br>
+        <span class="company-name">The Moneysquad Team</span>
+      </p>
+
+      <div class="help-section">
+        <p>Need help? Contact our support team at support@moneysquad.com</p>
+        <p>This is an automated message, please do not reply to this email.</p>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

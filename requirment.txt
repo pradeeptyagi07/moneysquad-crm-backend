@@ -1,0 +1,4 @@
+docker stop moneysd
+docker rm moneysd
+docker rmi moneysquad-backend
+docker compose up -d

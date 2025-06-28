@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>New Contact Submission</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            padding: 30px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 600px;
+            background-color: #ffffff;
+            margin: auto;
+            padding: 20px 30px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+        }
+
+        h2 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        p {
+            line-height: 1.6;
+            margin: 8px 0;
+        }
+
+        .label {
+            font-weight: bold;
+            color: #34495e;
+        }
+
+        .footer {
+            margin-top: 30px;
+            font-size: 0.85rem;
+            color: #888;
+            text-align: center;
+        }
+
+        .divider {
+            border-top: 1px solid #ddd;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>📩 New Contact Form Submission</h2>
+
+        <p><span class="label">Name:</span>
+            <%= firstName %>
+                <%= lastName %>
+        </p>
+        <p><span class="label">Email:</span>
+            <%= email %>
+        </p>
+        <p><span class="label">Phone Number:</span>
+            <%= phoneNumber %>
+        </p>
+        <p><span class="label">Profession:</span>
+            <%= profession %>
+        </p>
+
+        <div class="divider"></div>
+
+        <p><span class="label">Message:</span></p>
+        <p>
+            <%= message %>
+        </p>
+
+        <div class="divider"></div>
+
+        <div class="footer">
+            This message was sent from your website contact form.
+        </div>
+    </div>
+</body>
+
+</html>

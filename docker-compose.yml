@@ -1,0 +1,21 @@
+
+version: '3.6'
+services:
+  backend:
+    build: .
+    container_name: moneysd
+    ports:
+      - "5002:5002"
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      NODE_ENV: production
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+    networks:
+      - lb-net
+networks:
+  lb-net:
+    driver: bridge
