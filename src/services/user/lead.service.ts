@@ -469,7 +469,7 @@ export const leadService = {
         let messageData;
 
         if (creatorUser.role === "admin") {
-            messageData =`Lead Status updated by ${creatorUser.role} ${creatorUser.firstName} ${creatorUser.lastName}`
+            messageData = `Lead Status updated by ${creatorUser.role} ${creatorUser.firstName} ${creatorUser.lastName}`
         } else if (creatorUser.role === "manager") {
             messageData = `Lead Status updated by ${creatorUser.role} ${creatorUser.firstName} ${creatorUser.lastName} {(${creatorUser.managerId})}`
         }

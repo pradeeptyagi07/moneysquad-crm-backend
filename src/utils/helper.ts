@@ -34,10 +34,10 @@ export const generateUniquePartnerId = async (): Promise<string> => {
         { upsert: true, new: true }
     );
 
-    const padded = String(result.seq).padStart(5, '0');
+    const offsetSeq = 500 + (result.seq || 0); // add 500 offset
+    const padded = String(offsetSeq).padStart(6, '0'); // Ensure 6 digits (e.g., 000501)
     return `MSC${padded}`;
 };
-
 
 export const generateUniqueLeadId = async (): Promise<string> => {
     const result = await Counter.findByIdAndUpdate(
@@ -50,18 +50,17 @@ export const generateUniqueLeadId = async (): Promise<string> => {
     return `ML${padded}`;
 };
 
-
-export const generateUniqueAssociateId = async (): Promise<string> => {
+export const generateUniqueAssociateId = async (partnerId: string): Promise<string> => {
+    // Use a unique counter per partner
     const result = await Counter.findByIdAndUpdate(
-        { _id: 'leadId' },
+        { _id: `associate-${partnerId}` },
         { $inc: { seq: 1 } },
         { upsert: true, new: true }
     );
 
-    const padded = String(result.seq).padStart(5, '0');
-    return `AS${padded}`;
+    const padded = String(result.seq).padStart(3, '0'); // A001, A002, ...
+    return `${partnerId}-A${padded}`;
 };
-
 
 export const unflattenObject = (flat: Record<string, any>): any => {
     const result: any = {};
