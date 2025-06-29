@@ -99,7 +99,7 @@ export const associateService = {
         }
 
         return associate;
-    }
+    },
 
     // Delete associate
     deleteAssociate: async (partnerId: string, associateId: string) => {
