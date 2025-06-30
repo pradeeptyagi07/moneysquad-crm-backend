@@ -10,16 +10,24 @@ import { sendPasswordEmail } from "../common.service";
 export const partnerService = {
 
     createPartner: async (data: any, files: any) => {
+        console.log("🚀 Starting createPartner");
+        console.log("📦 Received data:", JSON.stringify(data, null, 2));
+        console.log("📁 Received files:", Object.keys(files || {}));
 
-        console.log("data", data)
-
+        console.log("🔍 Checking if partner already exists...");
         const existing = await CombinedUser.findOne({
             $or: [
                 { 'basicInfo.email': data.basicInfo.email },
                 { 'basicInfo.mobile': data.basicInfo.mobile }
             ]
         });
-        if (existing) throw new Error("Partner already exists");
+        if (existing) {
+            console.error("❌ Partner already exists with same email or mobile:", {
+                email: data.basicInfo.email,
+                mobile: data.basicInfo.mobile
+            });
+            throw new Error("Partner already exists");
+        }
 
         const documentKeys = [
             'profilePhoto',
@@ -33,15 +41,20 @@ export const partnerService = {
 
         const documents: { [key: string]: string } = {};
 
+
+        console.log("📤 Uploading documents to S3...");
         for (const key of documentKeys) {
             const file = files[key]?.[0];
             if (file) {
+                console.log(`📄 Uploading ${key}...`);
                 const s3Url = await uploadFileToS3(file, 'partners');
                 documents[key] = s3Url;
+                console.log(`✅ Uploaded ${key}:`, s3Url);
             }
         }
 
         const partnerId = await generateUniquePartnerId();
+        console.log("✅ Generated partnerId:", partnerId);
 
         const rawPassword = generateRandomPassword();
         const hashed = await hashPassword(rawPassword);
@@ -59,8 +72,14 @@ export const partnerService = {
             mobile: data.basicInfo.mobile,
         };
 
+        console.log("📦 Partner payload ready:", JSON.stringify(partnerPayload, null, 2));
+
+        console.log("🛠️ Creating partner in DB...");
         const partner = await CombinedUser.create(partnerPayload);
+        console.log("✅ Partner created successfully:", partner._id);
+
         await sendPasswordEmail(data.basicInfo.email, data.basicInfo.fullName, rawPassword);
+        console.log("✅ Password email sent");
 
         return partner;
     },
