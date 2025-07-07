@@ -2,9 +2,17 @@ import path from 'path';
 import { uploadToS3 } from '../services/upload.service';
 import crypto from "crypto";
 import { Counter } from '../model/Counter';
+import { v4 as uuidv4 } from 'uuid';
 
-export const uploadFileToS3 = async (file: Express.Multer.File, folder: string) => {
-    return await uploadToS3(file.buffer, path.basename(file.originalname), folder);
+export const uploadFileToS3 = async (
+    file: Express.Multer.File,
+    folder: string
+): Promise<string> => {
+    const originalName = path.basename(file.originalname);
+    const extension = path.extname(originalName);
+    const nameWithoutExt = path.basename(originalName, extension);
+    const uniqueFileName = `${nameWithoutExt}-${uuidv4()}${extension}`;
+    return await uploadToS3(file.buffer, uniqueFileName, folder);
 };
 
 export const generateRandomPassword = () => {

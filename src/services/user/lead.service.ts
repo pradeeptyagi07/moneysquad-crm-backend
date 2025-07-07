@@ -11,6 +11,7 @@ export const leadService = {
     async createLead(userId: string, leadData: any) {
         // Check if the creator user exists (optional validation)
         const creatorUser = await CombinedUser.findById(userId);
+        console.log("creatorUser", creatorUser)
         if (!creatorUser) throw new Error("Creator user not found");
 
         let finalStatus;
@@ -72,7 +73,7 @@ export const leadService = {
             leadId: newLead.leadId,
             applicantName: leadData.applicantName,
             status: finalStatus,
-            message: `Lead created by ${creatorUser.role} ${creatorUser.firstName} ${creatorUser.lastName}`
+            message: `Lead created by ${creatorUser.role} ${creatorUser.basicInfo?.fullName}`
         });
 
         await entry.save();
@@ -136,21 +137,18 @@ export const leadService = {
                     };
                     break;
                 case "assignedTo":
-                    lead.assignedTo = data.assignedTo;
 
-                    const alreadyAssigned = !!lead.assignedTo;
-
-                    console.log("alreadyAssigned", alreadyAssigned)
-
-                    if (!alreadyAssigned) {
-                        lead.assignedTo = data.assignedTo
-                        lead.status = "pending";
+                    console.log("lead.assignedTo", lead.assignedTo)
+                    // Check if lead was never assigned before
+                    if (lead.assignedTo == null) {
+                        // First time assignment
+                        lead.assignedTo = data.assignedTo;
+                        lead.status = "pending"; // set status only for new assignment
                     } else {
+                        // Reassignment — keep the old status
                         lead.assignedTo = data.assignedTo;
                     }
 
-
-                    // lead.status = "pending";
                     const entry = new Timeline({
                         leadId: lead.leadId,
                         applicantName: lead.applicantName,
@@ -163,6 +161,8 @@ export const leadService = {
                     (lead as any)[key] = data[key];
             }
         }
+
+        console.log("Final lead object before saving:", JSON.stringify(lead, null, 2));
 
         await lead.save();
 
@@ -289,8 +289,6 @@ export const leadService = {
 
         const result = await Promise.all(
             leads.map(async (lead) => {
-
-                console.log("lead", lead)
                 const disbursed = await DisbursedForm.findOne({ leadUserId: lead._id });
 
                 const latestTimeline = await Timeline.findOne({ leadId: lead.leadId })
