@@ -27,6 +27,7 @@ import requestRoutes from "./routes/v1/changeRequest.routes";
 import supportRoutes from "./routes/support.routes";
 import productInfoRoutes from "./routes/productInfo.routes";
 import bankRoutes from "./routes/bank.routes";
+import dashboardRoutes from "./routes/dashboard.routes";
 
 import { expireLeadsBasedOnTimeline } from "./script/task";
 
@@ -102,6 +103,7 @@ app.use("/api/request", requestRoutes);
 app.use("/api/support", supportRoutes);
 app.use("/api/product-info", productInfoRoutes);
 app.use("/api/bank", bankRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 
 cron.schedule('0 0 * * *', async () => {
