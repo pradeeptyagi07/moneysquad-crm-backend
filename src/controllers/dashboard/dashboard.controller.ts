@@ -26,7 +26,13 @@ export const dashboardController = {
     async getSnapshot(req: Request, res: Response) {
         try {
             const userId = (req as any).user.userId;
-            const snapshot = await dashboardService.getSnapshot(userId);
+            const { period, loanType, associateId } = req.query;
+            const snapshot = await dashboardService.getSnapshot({
+                period: period as string,
+                loanType: loanType as string,
+                associateId: associateId as string,
+                userId: userId as string
+            });
             res.status(200).json({
                 success: true,
                 message: "Snapshot data fetched successfully",
@@ -57,5 +63,47 @@ export const dashboardController = {
             console.error("❌ Error in getRejectionReasonCount:", error);
             res.status(500).json({ success: false, message: error.message });
         }
+    },
+
+    async getTrends(req: Request, res: Response) {
+        try {
+            const userId = (req as any).user.userId;
+            const { period, loanType, associateId } = req.query;
+            const trends = await dashboardService.getTrends({
+                period: period as string,
+                loanType: loanType as string,
+                associateId: associateId as string,
+                userId: userId as string
+            });
+            res.status(200).json({
+                success: true,
+                message: "Trends fetched successfully",
+                trends,
+            });
+        } catch (error: any) {
+            console.error("❌ Error in getTrends:", error);
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    async getMatrix(req: Request, res: Response) {
+        try {
+            const userId = (req as any).user.userId;
+            const { period, loanType, associateId } = req.query;
+            const matrix = await dashboardService.getMatrix({
+                period: period as string,
+                loanType: loanType as string,
+                associateId: associateId as string,
+                userId: userId as string
+            });
+            res.status(200).json({
+                success: true,
+                message: "Matrix fetched successfully",
+                matrix,
+            });
+        } catch (error: any) {
+            console.error("❌ Error in getMatrix:", error);
+            res.status(500).json({ success: false, message: error.message });
+        }
     }
-}   
+}

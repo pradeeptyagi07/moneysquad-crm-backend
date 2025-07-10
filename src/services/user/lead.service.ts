@@ -140,7 +140,7 @@ export const leadService = {
 
                     console.log("lead.assignedTo", lead.assignedTo)
                     // Check if lead was never assigned before
-                    if (lead.assignedTo == null) {
+                    if (lead.assignedTo === null || lead.assignedTo === undefined) {
                         // First time assignment
                         lead.assignedTo = data.assignedTo;
                         lead.status = "pending"; // set status only for new assignment
