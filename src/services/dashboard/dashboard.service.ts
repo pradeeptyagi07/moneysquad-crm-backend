@@ -20,7 +20,7 @@ interface SnapshotData {
 }
 
 interface TrendsData {
-    period?: string;
+    trendMonths: number;
     loanType?: string;
     associateId?: string;
     userId?: string;
@@ -468,16 +468,16 @@ export const dashboardService = {
     },
 
     async getTrends(params: TrendsData) {
-        const { period, loanType, associateId, userId } = params;
+        const { loanType, associateId, userId, trendMonths } = params;
 
         const user = await CombinedUser.findById(userId);
         if (!user) throw new Error("User not found");
         const isPartner = user.role === "partner";
 
-        const trendMonths = 3; // default last 3 months
-        const startDate = period
-            ? dayjs(period).startOf("month").subtract(trendMonths - 1, "month").toDate()
-            : dayjs().startOf("month").subtract(trendMonths - 1, "month").toDate();
+        const startDate = dayjs()
+            .startOf("month")
+            .subtract(trendMonths || 3, "month")
+            .toDate();
 
         // ------------------ LEADS ADDED ------------------
         const leadMatch: any = {

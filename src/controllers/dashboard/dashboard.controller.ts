@@ -68,9 +68,9 @@ export const dashboardController = {
     async getTrends(req: Request, res: Response) {
         try {
             const userId = (req as any).user.userId;
-            const { period, loanType, associateId } = req.query;
+            const { trendMonths, loanType, associateId } = req.query;
             const trends = await dashboardService.getTrends({
-                period: period as string,
+                trendMonths: Number(trendMonths),
                 loanType: loanType as string,
                 associateId: associateId as string,
                 userId: userId as string
