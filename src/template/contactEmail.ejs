@@ -3,84 +3,97 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>New Contact Submission</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            padding: 30px;
-            color: #333;
-        }
-
-        .container {
-            max-width: 600px;
-            background-color: #ffffff;
-            margin: auto;
-            padding: 20px 30px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
-        }
-
-        h2 {
-            color: #2c3e50;
-            margin-bottom: 10px;
-        }
-
-        p {
-            line-height: 1.6;
-            margin: 8px 0;
-        }
-
-        .label {
-            font-weight: bold;
-            color: #34495e;
-        }
-
-        .footer {
-            margin-top: 30px;
-            font-size: 0.85rem;
-            color: #888;
-            text-align: center;
-        }
-
-        .divider {
-            border-top: 1px solid #ddd;
-            margin: 20px 0;
-        }
-    </style>
+    <title>Welcome to MoneySquad</title>
 </head>
 
-<body>
-    <div class="container">
-        <h2>📩 New Contact Form Submission</h2>
+<body style="margin: 0; padding: 0; background-color: #f8fafc;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 20px 0;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0"
+                    style="background-color: #ffffff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #2d3748;">
+                    <tr>
+                        <td
+                            style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); text-align: center; color: #ffffff; padding: 30px 20px;">
+                            <h1 style="margin: 0; font-size: 24px;">🎉 Welcome to MoneySquad!</h1>
+                            <p style="margin: 10px 0 0 0; font-size: 14px;">Your Account is Now Active</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 30px 20px; font-size: 14px; line-height: 1.6;">
+                            <p>Hi <%= name %>, 👋</p>
+                            <p>Welcome to the MoneySquad family! 🚀<br>
+                                We’re excited to have you onboard as a trusted Partner/ Manager/ Associate helping
+                                individuals and businesses access fast, transparent, and reliable financial solutions.
+                            </p>
 
-        <p><span class="label">Name:</span>
-            <%= firstName %>
-                <%= lastName %>
-        </p>
-        <p><span class="label">Email:</span>
-            <%= email %>
-        </p>
-        <p><span class="label">Phone Number:</span>
-            <%= phoneNumber %>
-        </p>
-        <p><span class="label">Profession:</span>
-            <%= profession %>
-        </p>
+                            <div
+                                style="background-color: #f7fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                                <p style="margin: 0 0 10px 0;"><strong>🔐 Login Details</strong></p>
+                                <p style="margin: 0 0 10px 0;"><span
+                                        style="font-weight: bold; display: block; margin-bottom: 5px;">Dashboard
+                                        URL:</span>
+                                    <span
+                                        style="background-color: #edf2f7; font-family: monospace; padding: 8px; border-radius: 4px; display: inline-block;">https://app.moneysquad.in</span>
+                                </p>
+                                <p style="margin: 0 0 10px 0;"><span
+                                        style="font-weight: bold; display: block; margin-bottom: 5px;">Username
+                                        (Email):</span>
+                                    <span
+                                        style="background-color: #edf2f7; font-family: monospace; padding: 8px; border-radius: 4px; display: inline-block;">
+                                        <%= email %>
+                                    </span>
+                                </p>
+                                <p style="margin: 0;"><span
+                                        style="font-weight: bold; display: block; margin-bottom: 5px;">Temporary
+                                        Password:</span>
+                                    <span
+                                        style="background-color: #edf2f7; font-family: monospace; padding: 8px; border-radius: 4px; display: inline-block;">
+                                        <%= password %>
+                                    </span>
+                                </p>
+                            </div>
 
-        <div class="divider"></div>
+                            <div
+                                style="background-color: #fef5e7; border-left: 4px solid #f6ad55; padding: 15px; margin: 20px 0;">
+                                <p style="margin: 0;"><strong>🔒 Security Tip:</strong> Please log in and change your
+                                    password immediately from the account settings section.</p>
+                            </div>
 
-        <p><span class="label">Message:</span></p>
-        <p>
-            <%= message %>
-        </p>
+                            <div
+                                style="background-color: #ebf8ff; border-radius: 8px; padding: 20px; text-align: center; margin: 30px 0;">
+                                <p style="margin: 0 0 15px 0;"><strong>✅ What’s Next?</strong></p>
+                                <ul style="text-align: left; padding-left: 20px; margin: 0 0 15px 0;">
+                                    <li>Start referring leads & files using the dashboard</li>
+                                    <li>Track lead status, payouts & performance in real-time</li>
+                                    <li>Add your agents/associates and manage your team</li>
+                                    <li>Reach out to the Ops Team working on your leads anytime</li>
+                                </ul>
+                                <a href="https://app.moneysquad.in/login"
+                                    style="display: inline-block; background: #667eea; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold;">Login
+                                    to Your Dashboard</a>
+                            </div>
 
-        <div class="divider"></div>
+                            <p style="margin-bottom: 10px;">💡 Need help getting started?<br>
+                                📞 Support: Call us at 011-4709 4707 or WhatsApp at +91-8287943538</p>
 
-        <div class="footer">
-            This message was sent from your website contact form.
-        </div>
-    </div>
+                            <p style="margin: 0;">We’re here to help you grow 🚀 and earn more by empowering your
+                                network.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td
+                            style="background-color: #2d3748; color: #a0aec0; padding: 20px; text-align: center; font-size: 12px;">
+                            <p style="margin: 0 0 10px 0;"><strong>Warm Regards</strong><br>Team MoneySquad</p>
+                            <p style="margin: 0;">📧 hello@moneysquad.in<br>
+                                🌐 <a href="https://www.moneysquad.in"
+                                    style="color: #90cdf4; text-decoration: none;">www.moneysquad.in</a></p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
 </body>
 
 </html>

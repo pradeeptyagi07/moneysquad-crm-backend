@@ -4,6 +4,7 @@ import { CombinedUser } from "../../model/user/user.model";
 import { Timeline } from "../../model/timeline.model";
 import mongoose from "mongoose";
 import PartnerPayoutModel from "../../model/PartnerPayout.model";
+import { LoanType } from "../../model/loan.model";
 
 interface FunnelData {
     period?: string;
@@ -40,6 +41,29 @@ interface MatrixData {
     userId?: string;
 }
 
+
+
+
+/** Utility: returns an ordered list of YYYY‑MM strings, oldest → newest */
+const buildMonthSeries = (months: number): string[] => {
+    const series: string[] = [];
+    const today = dayjs().startOf("month");
+    for (let i = months - 1; i >= 0; i--) {
+        series.push(today.subtract(i, "month").format("YYYY-MM"));
+    }
+    return series;
+};
+
+/** Utility: merges aggregation {month,value}[] into a full series */
+const fillSeries = (
+    series: string[],
+    agg: { month: string; value: number }[]
+): { month: string; value: number }[] => {
+    const map = new Map(agg.map((d) => [d.month, d.value]));
+    return series.map((m) => ({ month: m, value: map.get(m) ?? 0 }));
+};
+
+
 export const dashboardService = {
 
     async getFunnel(params: FunnelData) {
@@ -52,8 +76,10 @@ export const dashboardService = {
 
         const baseQuery: any = { role: "lead" };
 
+        const loanName = await LoanType.findOne({ _id: loanType });
+
         // Filter by loanType and associateId if given
-        if (loanType) baseQuery["loan.type"] = loanType;
+        if (loanType) baseQuery["loan.type"] = loanName?.name;
         if (associateId) baseQuery["assocaite_Lead_Id"] = associateId;
 
         // Filter by role relationships
@@ -174,6 +200,8 @@ export const dashboardService = {
             baseQuery.createdAt = { $gte: start, $lte: end };
         }
 
+
+        console.log("baseQuery", baseQuery);
 
         const now = dayjs();
         const currentStart = now.startOf("month").toDate();
@@ -464,27 +492,36 @@ export const dashboardService = {
             percent: parseFloat(((item.count / total) * 100).toFixed(1))
         }));
 
-        return rejectionReasonCount;
+        return {
+            rejectionReasonCount,
+            totalCount: total
+        };
     },
 
     async getTrends(params: TrendsData) {
         const { loanType, associateId, userId, trendMonths } = params;
 
+        const monthsToReturn = trendMonths ?? 3;
+
+        // ---------- helpers ----------
+        const monthSeries = buildMonthSeries(monthsToReturn);
+        const startDate = dayjs(monthSeries[0]).toDate(); // first month’s first day
+
+
+        // ---------- current user ----------
         const user = await CombinedUser.findById(userId);
         if (!user) throw new Error("User not found");
         const isPartner = user.role === "partner";
-
-        const startDate = dayjs()
-            .startOf("month")
-            .subtract(trendMonths || 3, "month")
-            .toDate();
 
         // ------------------ LEADS ADDED ------------------
         const leadMatch: any = {
             role: "lead",
             createdAt: { $gte: startDate },
         };
-        if (loanType) leadMatch["loan.type"] = loanType;
+
+        const loanName = await LoanType.findOne({ _id: loanType });
+
+        if (loanType) leadMatch["loan.type"] = loanName?.name;
         if (associateId) leadMatch["assocaite_Lead_Id"] = new mongoose.Types.ObjectId(associateId);
 
         const leadsAgg = await CombinedUser.aggregate([
@@ -492,16 +529,16 @@ export const dashboardService = {
             {
                 $group: {
                     _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
-                    value: { $sum: 1 },
+                    count: { $sum: 1 },
                 },
             },
             { $sort: { _id: 1 } },
         ]);
 
-        const leadsAdded = leadsAgg.map(item => ({
-            month: item._id,
-            value: item.value,
-        }));
+        const leadsAdded = fillSeries(
+            monthSeries,
+            leadsAgg.map((i) => ({ month: i._id, value: i.count }))
+        );
 
         // ------------------ DISBURSALS ------------------
         const disbursalMatch: any = {
@@ -526,16 +563,16 @@ export const dashboardService = {
             {
                 $group: {
                     _id: { $dateToString: { format: "%Y-%m", date: "$actualDisbursedDate" } },
-                    value: { $sum: "$loanAmount" },
+                    count: { $sum: 1 },
                 },
             },
             { $sort: { _id: 1 } },
         ]);
 
-        const disbursals = disbursalAgg.map(item => ({
-            month: item._id,
-            value: item.value,
-        }));
+        const disbursals = fillSeries(
+            monthSeries,
+            disbursalAgg.map((i) => ({ month: i._id, value: i.count }))
+        );
 
         // ------------------ PAYOUTS (Placeholder) ------------------
         let payouts: { month: string; value: number }[] | null = null;
@@ -552,16 +589,16 @@ export const dashboardService = {
                 {
                     $group: {
                         _id: { $dateToString: { format: "%Y-%m", date: "$updatedAt" } },
-                        value: { $sum: "$commission" },
+                        count: { $sum: 1 },
                     },
                 },
                 { $sort: { _id: 1 } },
             ]);
 
-            payouts = payoutAgg.map(item => ({
-                month: item._id,
-                value: item.value,
-            }));
+            payouts = fillSeries(
+                monthSeries,
+                payoutAgg.map((i) => ({ month: i._id, value: i.count }))
+            );
         }
 
         return { leadsAdded, disbursals, payouts };
@@ -571,72 +608,151 @@ export const dashboardService = {
     async getMatrix(params: MatrixData) {
         const { period, loanType, associateId, userId } = params;
 
+
         const user = await CombinedUser.findById(userId);
         if (!user) throw new Error("User not found");
 
+        const baseQuery: any = { role: "lead" };
+
+        // Filter by role relationships
+        if (user.role === "manager") {
+            baseQuery.assignedTo = user._id;
+        } else if (user.role === "partner") {
+            baseQuery.partner_Lead_Id = user._id;
+        } else if (user.role === "associate") {
+            baseQuery.assocaite_Lead_Id = user._id;
+        }
+
+
+        // 1️⃣ Get date range
         const start = period ? dayjs(period).startOf("month").toDate() : dayjs().startOf("month").toDate();
         const end = period ? dayjs(period).endOf("month").toDate() : dayjs().endOf("month").toDate();
+        console.log("baseQuery", baseQuery)
 
-        const leadMatch: any = {
-            role: "lead",
-            createdAt: { $gte: start, $lte: end }
-        };
-        if (loanType) leadMatch["loan.type"] = loanType;
-        if (associateId) leadMatch["assocaite_Lead_Id"] = new mongoose.Types.ObjectId(associateId);
+        const leads = await CombinedUser.find(baseQuery).select("leadId status");
+        const leadIds = leads.map((lead) => lead._id).filter(Boolean);
 
-        const leads = await CombinedUser.find(leadMatch).select("createdAt _id");
 
-        const leadIds = leads.map(lead => lead._id);
 
-        // --- Disbursed Leads in the period ---
+
+        // 3️⃣ Get disbursed forms
         const disbursedMatch: any = {
             leadUserId: { $in: leadIds },
             actualDisbursedDate: { $gte: start, $lte: end },
         };
 
-        const disbursals = await DisbursedForm.find(disbursedMatch).select("loanAmount actualDisbursedDate leadUserId");
+        console.log("disbursedMatch", disbursedMatch)
+
+        const disbursals = await DisbursedForm.find(disbursedMatch)
+            .populate({
+                path: 'leadUserId',
+                model: 'CombinedUser',
+                select: 'leadId'
+            })
+            .select("loanAmount actualDisbursedDate leadUserId")
+            .lean();
+
+        console.log("disbursals", disbursals);
 
         const disbursedLeadsCount = disbursals.length;
         const totalLeadsCount = leads.length;
 
-        // --- Disbursal Rate ---
+        // 4️⃣ Calculate disbursal rate
         const disbursalRatePct = totalLeadsCount > 0
             ? parseFloat(((disbursedLeadsCount / totalLeadsCount) * 100).toFixed(1))
             : 0;
 
-        // --- Avg. TAT (in days) ---
-        const leadCreatedMap = new Map<string, Date>(
-            leads.map((lead: any) => [lead._id.toString(), lead.createdAt])
-        );
+        // 5️⃣ Normalize disbursals with `leadId`
+        const disbursalsNorm = disbursals.map(d => {
+            const leadId = d.leadId ||
+                (typeof d.leadUserId === "object" && "leadId" in d.leadUserId
+                    ? d.leadUserId.leadId
+                    : d.leadUserId?.toString?.());
+            return { ...d, leadId };
+        });
 
-        const tatList: number[] = disbursals
-            .map((d: any) => {
-                const createdAt = leadCreatedMap.get(d.leadUserId.toString());
-                if (!createdAt) return null;
-                const diff = dayjs(d.actualDisbursedDate).diff(dayjs(createdAt), "day", true);
-                return diff;
-            })
-            .filter((d): d is number => d !== null);
+        console.log("disbursalsNorm", disbursalsNorm);
+
+        // 6️⃣ Get login timelines
+        const leadIdsStr = disbursalsNorm.map(d => d.leadId).filter(Boolean);
+        console.log("[TAT] Lead IDs used for Timeline lookup:", leadIdsStr);
+
+        const timelines = await Timeline.find({
+            leadId: { $in: leadIdsStr },
+            status: "login"
+        }).sort({ createdAt: 1 }).select("leadId createdAt");
+
+        console.log("[TAT] Timeline login dates fetched:", timelines.length);
+        console.table(timelines.map(t => ({
+            leadId: t.leadId,
+            loginDate: t.createdAt
+        })));
+
+        // 7️⃣ Map earliest login per lead
+        const loginDateMap = new Map<string, Date>();
+        for (const t of timelines) {
+            if (!loginDateMap.has(t.leadId)) {
+                loginDateMap.set(t.leadId, t.createdAt);
+            }
+        }
+        console.log("loginDateMap", loginDateMap);
+
+        // 8️⃣ Debug TAT rows with whole-day calculation
+        const debugRows = disbursalsNorm.map(d => {
+            const leadIdStr = typeof d.leadId === "string" ? d.leadId : String(d.leadId);
+            const loginDate = loginDateMap.get(leadIdStr) || null;
+            const disbursalDate = d.actualDisbursedDate;
+
+            // Calculate TAT ignoring time, just using dates
+            const tatDays = loginDate
+                ? dayjs(disbursalDate).startOf('day').diff(dayjs(loginDate).startOf('day'), 'day')
+                : null;
+
+            return {
+                leadId: d.leadId,
+                loginDate,
+                disbursalDate,
+                tatDays
+            };
+        });
+
+        console.table(debugRows);
+
+        // 9️⃣ Compute final TAT list and average
+        const tatList: number[] = debugRows
+            .filter(r => r.tatDays !== null)
+            .map(r => r.tatDays as number);
+
+        console.log("[TAT] Individual TATs (days):", tatList);
 
         const avgDisbursalTATdays =
-            tatList.length > 0 ? parseFloat((tatList.reduce((a, b) => a + b, 0) / tatList.length).toFixed(1)) : 0;
-
-        // --- Avg. Loan Amount ---
-        const avgLoanAmount =
-            disbursals.length > 0
-                ? Math.round(disbursals.reduce((sum, d) => sum + (d.loanAmount || 0), 0) / disbursals.length)
+            tatList.length > 0
+                ? parseFloat((tatList.reduce((a, b) => a + b, 0) / tatList.length).toFixed(1))
                 : 0;
 
-        // --- Target Achieved ---
-        const targetAchievedPct = null; // Placeholder unless your business logic provides it
+        console.log(`[TAT] Average Disbursal TAT: ${avgDisbursalTATdays} day(s)`);
+
+        // 🔟 Avg loan amount
+        const totalDisbursedAmount = disbursals.reduce((sum, d) => sum + (d.loanAmount || 0), 0);
+        const avgLoanAmount = disbursals.length > 0
+            ? Math.round(totalDisbursedAmount / disbursals.length)
+            : 0;
+
+        // 1️⃣1️⃣ Return matrix
+
+
+
+        //calculate target achieved
+
 
         return {
             disbursalRatePct,
             avgDisbursalTATdays,
             avgLoanAmount,
-            targetAchievedPct
+            targetAchievedPct: null
         };
     }
+
 
 
 }
