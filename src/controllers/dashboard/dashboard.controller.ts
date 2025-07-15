@@ -48,7 +48,7 @@ export const dashboardController = {
         try {
             const userId = (req as any).user.userId;
             const { period, loanType, associateId } = req.query;
-            const rejectionReasonCount = await dashboardService.getRejectionReasonCount({
+            const data = await dashboardService.getRejectionReasonCount({
                 period: period as string,
                 loanType: loanType as string,
                 associateId: associateId as string,
@@ -57,7 +57,7 @@ export const dashboardController = {
             res.status(200).json({
                 success: true,
                 message: "Rejection reason count fetched successfully",
-                rejectionReasonCount,
+                data,
             });
         } catch (error: any) {
             console.error("❌ Error in getRejectionReasonCount:", error);
