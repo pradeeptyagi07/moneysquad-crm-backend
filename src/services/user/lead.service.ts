@@ -1,6 +1,7 @@
 import DisbursedForm from "../../model/disbursedForm.model";
 import PartnerPayoutModel from "../../model/PartnerPayout.model";
 import { Timeline } from "../../model/timeline.model";
+import { Remark } from "../../model/Remarks.model";
 import { CombinedUser } from "../../model/user/user.model";
 import { hashPassword } from "../../utils/hash";
 import { generateRandomPassword, generateUniqueLeadId, uploadFileToS3 } from "../../utils/helper";
@@ -662,5 +663,78 @@ export const leadService = {
 
         await payout.save();
         return await form.save();
+    },
+
+    addRemark: async (leadId: string, remarkMessage: string, userId: string) => {
+    if (!remarkMessage || typeof remarkMessage !== 'string') {
+        throw new Error('Message must be a non-empty string');
+    }
+
+    const user = await CombinedUser.findById(userId);
+    if (!user) {
+        throw new Error('User not found');
+    }
+
+    let clientName: string;
+    if (user.role === 'partner') {
+        clientName = user.basicInfo.fullName;
+    } else {
+        const firstName = user.firstName || '';
+        const lastName = user.lastName || '';
+        clientName = `${firstName} ${lastName}`.trim();
+    }
+
+    const remarkDoc = await Remark.findOne({ leadId });
+
+    if (!remarkDoc) {
+        // No remark for this lead, create new
+        const newRemark = new Remark({
+            leadId,
+            remarkMessage: [{
+                userId,
+                name: clientName,
+                role: user.role,
+                messages: [{
+                    text: remarkMessage,
+                    timestamp: new Date()
+                }]
+            }]
+        });
+        return await newRemark.save();
+    } else {
+        // Remark exists, check if user already exists in remarkMessage array
+        const userIndex = remarkDoc.remarkMessage.findIndex(r => r.userId === userId);
+
+        if (userIndex !== -1) {
+            // User exists, push new message
+            remarkDoc.remarkMessage[userIndex].messages.push({
+                text: remarkMessage,
+                timestamp: new Date()
+            });
+        } else {
+            // User doesn't exist, push new user object
+            remarkDoc.remarkMessage.push({
+                userId,
+                name: clientName,
+                role: user.role,
+                messages: [{
+                    text: remarkMessage,
+                    timestamp: new Date()
+                }]
+            });
+        }
+
+        return await remarkDoc.save();
+    }
+}
+,
+
+    getRemarks : async(id : string) =>{
+         const remarks = await Remark.findOne({ leadId: id });
+         if (!remarks) {
+             throw new Error('No remarks found for this leadId');
+         }
+
+         return remarks;
     }
 };

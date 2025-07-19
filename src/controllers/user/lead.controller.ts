@@ -85,6 +85,31 @@ export const leadController = {
         }
     },
 
+    async createRemarksById(req: Request, res: Response){
+        try {
+             const { id } = req.query as { id: string };
+             const { message } = req.body; 
+             const userId = (req as any).user.userId;
+             const createRemarks = await leadService.addRemark(id, message,userId);
+             res.status(201).json({ success: true, data: createRemarks });
+        } 
+        catch (error: any) {
+            
+           res.status(500).json({ success: false, message: error.message });
+        }
+    },
+    async getRemarksByLeadId(req: Request, res: Response){
+        try {
+            const { id } = req.params;
+            const remarks = await leadService.getRemarks(id);
+            res.status(200).json({ success: true, data: remarks });
+        } 
+        catch (error: any) {
+            
+           res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
     assignManager: async (req: Request, res: Response) => {
         try {
             const { id } = req.params;

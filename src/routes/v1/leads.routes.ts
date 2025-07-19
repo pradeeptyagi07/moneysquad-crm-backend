@@ -23,4 +23,10 @@ router.put("/update-status/:id", upload.fields([{name: 'rejectImage', maxCount: 
 
 router.get("/timeline/:id", leadController.timeLine);
 
+
+router.get('/remarks/:id', leadController.getRemarksByLeadId);
+router.post("/create-remarks", authMiddleware, upload.none(), leadController.createRemarksById);
+
+
+
 export default router;
