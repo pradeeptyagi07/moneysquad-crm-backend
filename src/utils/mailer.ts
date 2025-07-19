@@ -15,13 +15,18 @@ interface MailOptions {
   to: string;
   subject: string;
   html: string;
+  attachments?: {
+    filename: string;
+    path: string;
+  }[];
 }
 
-export const sendEmail = async ({ to, subject, html }: MailOptions) => {
+export const sendEmail = async ({ to, subject, html, attachments }: MailOptions) => {
   await transporter.sendMail({
     from: `"MoneySquad Contact" <${process.env.MAIL_USER}>`,
     to,
     subject,
     html,
+    attachments
   });
 };

@@ -6,6 +6,7 @@ import mongoose from "mongoose";
 import PartnerPayoutModel from "../../model/PartnerPayout.model";
 import { LoanType } from "../../model/loan.model";
 import { start } from "repl";
+import { sendPartnerAgreementEmail } from "../common.service";
 
 // ==================== TYPES & INTERFACES ====================
 
@@ -713,5 +714,24 @@ export const dashboardService = {
             avgLoanAmount,
             targetAchievedPct: null
         };
+    },
+
+    updateAgreementAcceptedStatus: async(userId: string, userIP: string) =>{
+        const user = await CombinedUser.findById(userId);
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        if (user.role !== 'partner') {
+            throw new Error('User is not a partner');
+        }
+
+        user.agreementAccepted = true;
+        user.agreementAcceptedLogs = [{
+            timestamp: new Date(),
+            ip: userIP
+        }];
+        await sendPartnerAgreementEmail(user.email, user.basicInfo.fullName);
+        await user.save();
     }
 };

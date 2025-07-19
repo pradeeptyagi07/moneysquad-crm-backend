@@ -9,5 +9,6 @@ router.get("/snapshot", authMiddleware, dashboardController.getSnapshot);
 router.get("/rejection-reason-count", authMiddleware, dashboardController.getRejectionReasonCount);
 router.get("/trends", authMiddleware, dashboardController.getTrends);
 router.get("/matrix", authMiddleware, dashboardController.getMatrix);
+router.post("/partner-agreement-accept",authMiddleware, dashboardController.isAgreementAccepted)
 
 export default router;

@@ -46,6 +46,18 @@ const combinedUserSchema = new Schema<ICombinedUser>(
             enum: [],
             default: "n/a"
         },
+        agreementAccepted: {
+            type: Boolean,
+            default: false,
+            required: function () {
+                return this.role === "partner";
+            },
+        },
+        agreementAcceptedLogs: [
+        {
+            timestamp: { type: Date },
+            ip: { type: String }
+        }],
         partner_Lead_Id: { type: ObjectId, ref: "CombinedUser" },
         assocaite_Lead_Id: { type: ObjectId, ref: "CombinedUser" },
         applicantProfile: { type: String },

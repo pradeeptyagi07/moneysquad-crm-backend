@@ -614,6 +614,24 @@ export const leadService = {
         payout.disbursedId = disbursedForm._id;
 
         await payout.save();
+        const updatePayload: any = {};
+        if (form.actualDisbursedDate) {
+            const date = new Date(form.actualDisbursedDate);
+            if (!isNaN(date.getTime())) {
+                updatePayload.createdAt = date;
+            }
+        }
+
+        if (updatePayload.createdAt) {
+        const payout = await PartnerPayoutModel.findOne({ lead_Id: lead._id });
+
+        if (!payout) {
+            throw new Error("Partner payout not found for this lead");
+        }
+
+        payout.createdAt = updatePayload.createdAt;
+        await payout.save();
+        }
         return disbursedForm
     },
 
@@ -662,8 +680,30 @@ export const leadService = {
 
 
         await payout.save();
-        return await form.save();
-    },
+        const disbursedForm = await form.save();
+
+        const updatePayload: any = {};
+        if (form.actualDisbursedDate) {
+            const date = new Date(form.actualDisbursedDate);
+            if (!isNaN(date.getTime())) {
+                updatePayload.createdAt = date;
+            }
+        }
+
+        if (updatePayload.createdAt) {
+        const payout = await PartnerPayoutModel.findOne({ lead_Id: lead._id });
+
+        if (!payout) {
+            throw new Error("Partner payout not found for this lead");
+        }
+
+        payout.createdAt = updatePayload.createdAt;
+        await payout.save();
+        }
+        return disbursedForm;
+        
+    }
+,
 
     addRemark: async (leadId: string, remarkMessage: string, userId: string) => {
     if (!remarkMessage || typeof remarkMessage !== 'string') {

@@ -20,6 +20,11 @@ export interface IOtp {
   expiresAt: Date;
 }
 
+export interface IAgreementAcceptedLog {
+  timestamp: Date;
+  ip: string;
+}
+
 export interface ICombinedUser extends Document {
   firstName?: string;
   lastName?: string;
@@ -39,6 +44,8 @@ export interface ICombinedUser extends Document {
   bankDetails?: any;
   documents?: any;
   commissionPlan?: UserCommissionPlab;
+  agreementAccepted?: boolean;
+  agreementAcceptedLogs?: IAgreementAcceptedLog[];
 
   partner_Lead_Id?: string;
   assignedTo?: string;

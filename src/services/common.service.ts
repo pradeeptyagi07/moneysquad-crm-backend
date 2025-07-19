@@ -50,3 +50,30 @@ export const sendOtp = async (to: string, name: string, password: string) => {
     html,
   });
 };
+
+export const sendPartnerAgreementEmail = async (to: string, name: string) => {
+  // 1) Render the HTML
+  const templatePath = path.join(__dirname, "../template/partnerAgreement.ejs");
+  const html = await ejs.renderFile(templatePath, { name });
+
+  // 2) Send with attachments
+  await sendEmail({
+    to,
+    subject: "Your Partner Agreement & Policies",
+    html,
+    attachments: [
+      {
+        filename: "Privacy_Policy.pdf",
+        path: path.join(__dirname, "../assets/ConfidentialDocuments/MoneySquad - Privacy policy.pdf"),
+      },
+      {
+        filename: "Terms_of_Use.pdf",
+        path: path.join(__dirname, "../assets/ConfidentialDocuments/MoneySquad - Terms of Use.pdf"),
+      },
+      {
+        filename: "Partner_Service_Agreement.pdf",
+        path: path.join(__dirname, "../assets/ConfidentialDocuments/MoneySquad_Partner_Service_Agreement.pdf"),
+      },
+    ],
+  });
+};

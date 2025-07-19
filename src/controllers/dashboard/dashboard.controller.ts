@@ -105,5 +105,16 @@ export const dashboardController = {
             console.error("❌ Error in getMatrix:", error);
             res.status(500).json({ success: false, message: error.message });
         }
+    },
+
+    async isAgreementAccepted(req: Request, res: Response){
+        try{
+            const userId = (req as any).user.userId;
+            const userIP = req.ip || 'unknown';         
+            const agreementAccepted = dashboardService.updateAgreementAcceptedStatus(userId, userIP);
+            res.status(200).json({ success: true, data: agreementAccepted });
+        }catch(error:any){
+            res.status(500).json({ success: false, message: error.message });
+        }
     }
 }

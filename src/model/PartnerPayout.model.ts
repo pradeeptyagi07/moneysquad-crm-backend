@@ -28,6 +28,8 @@ export interface IPartnerPayout extends Document {
   remark: string;
   commissionRemark?: string;
   commission?: number;
+  createdAt: Date;
+  updatedAt?: Date; 
 }
 
 const PartnerPayoutSchema: Schema<IPartnerPayout> = new Schema(
@@ -90,8 +92,13 @@ const PartnerPayoutSchema: Schema<IPartnerPayout> = new Schema(
       type: Number,
       required: true,
     },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+      immutable: false, 
+    },
   },
-  { timestamps: true }
+  { timestamps: { createdAt: false, updatedAt: true }}
 );
 
 export default mongoose.model<IPartnerPayout>("PartnerPayout", PartnerPayoutSchema);
