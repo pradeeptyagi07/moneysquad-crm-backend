@@ -731,7 +731,7 @@ export const dashboardService = {
             timestamp: new Date(),
             ip: userIP
         }];
-        await sendPartnerAgreementEmail(user.email, user.basicInfo.fullName);
         await user.save();
+        await sendPartnerAgreementEmail(user.email, user.basicInfo.fullName);
     }
 };
