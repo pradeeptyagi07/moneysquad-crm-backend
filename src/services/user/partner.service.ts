@@ -4,85 +4,128 @@ import PartnerPayoutModel from "../../model/PartnerPayout.model";
 import { CombinedUser } from "../../model/user/user.model";
 import { hashPassword } from "../../utils/hash";
 import { generateRandomPassword, generateUniquePartnerId, uploadFileToS3 } from "../../utils/helper";
+import Sentry from "../../utils/sentry";
 import { sendPasswordEmail } from "../common.service";
 
 
 export const partnerService = {
 
-    createPartner: async (data: any, files: any) => {
-        console.log("🚀 Starting createPartner");
-        console.log("📦 Received data:", JSON.stringify(data, null, 2));
-        console.log("📁 Received files:", Object.keys(files || {}));
+ createPartner: (data: any, files: Record<string, Express.Multer.File[]>) => {
+    return Sentry.startSpan(
+      { name: 'Create Partner', op: 'partner.create' },
+      async span => {
+        try {
+          Sentry.addBreadcrumb({
+            category: 'partner.create',
+            message: '📥 Received createPartner request',
+            level: 'info',
+          });
 
-        console.log("🔍 Checking if partner already exists...");
-        const existing = await CombinedUser.findOne({
+          Sentry.addBreadcrumb({
+            category: 'partner.create',
+            message: '🔍 Checking for existing partner',
+            level: 'info',
+          });
+          const existing = await CombinedUser.findOne({
             $or: [
-                { 'basicInfo.email': data.basicInfo.email },
-                { 'basicInfo.mobile': data.basicInfo.mobile }
-            ]
-        });
-        if (existing) {
-            console.error("❌ Partner already exists with same email or mobile:", {
-                email: data.basicInfo.email,
-                mobile: data.basicInfo.mobile
+              { 'basicInfo.email': data.basicInfo.email },
+              { 'basicInfo.mobile': data.basicInfo.mobile },
+            ],
+          });
+          if (existing) {
+            Sentry.addBreadcrumb({
+              category: 'partner.create',
+              message: '⚠️ Partner already exists',
+              level: 'warning',
             });
-            throw new Error("Partner already exists");
-        }
+            throw new Error('Partner already exists');
+          }
 
-        const documentKeys = [
-            'profilePhoto',
-            'panCard',
-            'aadharFront',
-            'aadharBack',
-            'cancelledCheque',
-            'gstCertificate',
-            'aditional',
-        ];
-
-        const documents: { [key: string]: string } = {};
-
-
-        console.log("📤 Uploading documents to S3...");
-        for (const key of documentKeys) {
+          Sentry.addBreadcrumb({
+            category: 'partner.create',
+            message: '📤 Uploading documents to S3',
+            level: 'info',
+          });
+          const documentKeys = [
+            'profilePhoto','panCard','aadharFront','aadharBack',
+            'cancelledCheque','gstCertificate','aditional',
+          ];
+          const documents: Record<string,string> = {};
+          for (const key of documentKeys) {
             const file = files[key]?.[0];
             if (file) {
-                console.log(`📄 Uploading ${key}...`);
-                const s3Url = await uploadFileToS3(file, 'partners');
-                documents[key] = s3Url;
-                console.log(`✅ Uploaded ${key}:`, s3Url);
+              Sentry.addBreadcrumb({
+                category: 'partner.create',
+                message: `🔄 Uploading ${key}`,
+                level: 'debug',
+              });
+              const url = await uploadFileToS3(file, 'partners');
+              documents[key] = url;
+              Sentry.addBreadcrumb({
+                category: 'partner.create',
+                message: `✅ Uploaded ${key}`,
+                level: 'debug',
+              });
             }
-        }
+          }
 
-        const partnerId = await generateUniquePartnerId();
-        console.log("✅ Generated partnerId:", partnerId);
+          Sentry.addBreadcrumb({
+            category: 'partner.create',
+            message: '🆔 Generating partnerId & password',
+            level: 'info',
+          });
+          const partnerId = await generateUniquePartnerId();
+          const rawPassword = generateRandomPassword();
+          const hashed = await hashPassword(rawPassword);
+          Sentry.addBreadcrumb({
+            category: 'partner.create',
+            message: `🔑 Generated partnerId: ${partnerId}`,
+            level: 'debug',
+          });
 
-        const rawPassword = generateRandomPassword();
-        const hashed = await hashPassword(rawPassword);
-
-        const partnerPayload = {
+          Sentry.addBreadcrumb({
+            category: 'partner.create',
+            message: '💾 Saving partner to database',
+            level: 'info',
+          });
+          const partner = await CombinedUser.create({
             basicInfo: data.basicInfo,
             personalInfo: data.personalInfo,
             addressDetails: data.addressDetails,
             bankDetails: data.bankDetails,
-            password: hashed,
-            partnerId,
             documents,
+            partnerId,
+            password: hashed,
             role: 'partner',
             email: data.basicInfo.email,
             mobile: data.basicInfo.mobile,
-        };
+          });
+          Sentry.addBreadcrumb({
+            category: 'partner.create',
+            message: `✅ Partner created (_id=${partner._id})`,
+            level: 'debug',
+          });
 
-        console.log("📦 Partner payload ready:", JSON.stringify(partnerPayload, null, 2));
+          Sentry.addBreadcrumb({
+            category: 'partner.create',
+            message: '📧 Sending credentials email',
+            level: 'info',
+          });
+          await sendPasswordEmail(data.basicInfo.email, data.basicInfo.fullName, rawPassword);
+          Sentry.addBreadcrumb({
+            category: 'partner.create',
+            message: '✅ Credentials email sent',
+            level: 'debug',
+          });
 
-        console.log("🛠️ Creating partner in DB...");
-        const partner = await CombinedUser.create(partnerPayload);
-        console.log("✅ Partner created successfully:", partner._id);
-
-        await sendPasswordEmail(data.basicInfo.email, data.basicInfo.fullName, rawPassword);
-        console.log("✅ Password email sent");
-
-        return partner;
-    },
+          return partner;
+        } catch (err) {
+          Sentry.captureException(err);
+          throw err;
+        }
+      }
+    );
+  },
 
     getPartnerById: async (id: string) => {
         return await CombinedUser.findById(id);

@@ -1,6 +1,7 @@
 import app from "./app";
 import dotenv from "dotenv";
 import { connectDB } from "./config/db/db";
+import Sentry from "./utils/sentry";
 
 dotenv.config();
 
@@ -17,6 +18,23 @@ const green = "\x1b[32m";
 const magenta = "\x1b[35m";
 const red = "\x1b[31m";
 const underline = "\x1b[4m";
+
+// 1) Capture uncaught exceptions
+process.on("uncaughtException", (err) => {
+  console.error("💥 Uncaught Exception:", err);
+  Sentry.captureException(err);
+  // optionally flush Sentry before exit
+  Sentry.flush(2000).then(() => process.exit(1));
+});
+
+// 2) Capture unhandled promise rejections
+process.on("unhandledRejection", (reason) => {
+  console.error("💥 Unhandled Rejection:", reason);
+  Sentry.captureException(
+    reason instanceof Error ? reason : new Error(String(reason))
+  );
+  Sentry.flush(2000).then(() => process.exit(1));
+});
 
 app.listen(PORT, '0.0.0.0', () => {
     connectDB();
