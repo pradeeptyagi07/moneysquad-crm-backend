@@ -7,6 +7,11 @@ import PartnerPayoutModel from "../../model/PartnerPayout.model";
 import { LoanType } from "../../model/loan.model";
 import { start } from "repl";
 import { sendPartnerAgreementEmail } from "../common.service";
+import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
+import isBetween from "dayjs/plugin/isBetween";
+
+dayjs.extend(isSameOrAfter);
+dayjs.extend(isBetween);
 
 // ==================== TYPES & INTERFACES ====================
 
@@ -175,6 +180,28 @@ const getRelatedLeadIds = async (userContext: UserContext): Promise<mongoose.Typ
             return [];
     }
 };
+        const getActiveLead = async (
+                    params: SnapshotData,
+                    currentMonthStr: string
+                    ): Promise<{ uniqueCount: number; totalCount: number }> => {
+                    const activeLeads = await CombinedUser.find({
+                        status: { $in: ["new lead", "pending", "login", "approved"] },
+                    }).select("email mobile status");
+
+                    const uniqueSet = new Set<string>();
+                    activeLeads.forEach((lead) => {
+                        const key = `${lead.email}-${lead.mobile}`;
+                        uniqueSet.add(key);
+                    });
+
+                    return {
+                        uniqueCount: uniqueSet.size,
+                        totalCount: activeLeads.length,
+                    };
+        };
+
+        
+
 
 // ==================== CORE SERVICE FUNCTIONS ====================
 
@@ -358,104 +385,265 @@ export const dashboardService = {
     },
 
     async getSnapshot(params: SnapshotData) {
-        const userContext = await getUserContext(params.userId);
-        const { current, previous } = getCurrentAndPreviousMonths();
+         const userContext = await getUserContext(params.userId);
+         const relatedLeadIds = await getRelatedLeadIds(userContext);        
 
-        // Get disbursal amounts in parallel
-        const [currentDisbursal, previousDisbursal] = await Promise.all([
-            getDisbursalAmounts(userContext, current),
-            getDisbursalAmounts(userContext, previous)
-        ]);
+        const selectedPeriod = params.period ?? dayjs().format("YYYY-MM");
 
-        const deltaPercent = calculateDeltaPercentage(currentDisbursal, previousDisbursal);
+        const currentMonthStart = dayjs(`${selectedPeriod}-01`).startOf("month").toDate();
+        const prevMonthStart = dayjs(currentMonthStart).subtract(1, "month").startOf("month").toDate();
+        const prevMonthEnd = dayjs(currentMonthStart).subtract(1, "day").endOf("day").toDate();
+        const currentMonthEnd = dayjs(currentMonthStart).endOf("month").toDate();
 
-        // Get related lead IDs
-        const relatedLeadIds = await getRelatedLeadIds(userContext);
 
-        // Get active leads for current month (status: new, pending, login, approved)
-        const activeLeads = await CombinedUser.find({
+        // current Approval logic start-------------------------
+        const currentApprovalbaseFilter: any = {
             _id: { $in: relatedLeadIds },
-            status: { $in: ["new lead", "pending", "login", "approved"] },
-            createdAt: { $gte: current.start, $lte: current.end }
-        }).select("email mobile status");
-
-        const uniqueSet = new Set();
-        activeLeads.forEach((lead) => {
-            const key = `${lead.email}-${lead.mobile}`;
-            uniqueSet.add(key);
-        });
-
-        // Get leads added (created) in current month
-        const leadsAdded = await CombinedUser.find({
-            _id: { $in: relatedLeadIds },
-            createdAt: { $gte: current.start, $lte: current.end }
-        }).select("email mobile");
-
-        const leadsAddedUniqueSet = new Set();
-        leadsAdded.forEach((lead) => {
-            const key = `${lead.email}-${lead.mobile}`;
-            leadsAddedUniqueSet.add(key);
-        });
-
-        // Get commission earned (only for partners)
-        const commissionEarned = await calculateCommissionEarned(userContext, current, previous);
-
-        // Get lead IDs for timeline queries
-        const leadsWithLeadId = await CombinedUser.find({
-            _id: { $in: relatedLeadIds }
-        }).select("_id leadId");
-
-        const leadIdsForTimeline = leadsWithLeadId
-            .map((lead: any) => lead.leadId)
-            .filter(Boolean);
-
-        // Get timeline statistics in parallel
-        const [currentApproved, previousApproved, currentRejected, previousRejected] = await Promise.all([
-            getTimelineStats(leadIdsForTimeline, "approved", current),
-            getTimelineStats(leadIdsForTimeline, "approved", previous),
-            getTimelineStats(leadIdsForTimeline, "rejected", current),
-            getTimelineStats(leadIdsForTimeline, "rejected", previous)
-        ]);
-
-        const currentApprovalPercent = calculatePercentage(currentApproved, activeLeads.length);
-        const previousApprovalPercent = calculatePercentage(previousApproved, activeLeads.length);
-        const deltaApprovalPercent = currentApprovalPercent - previousApprovalPercent;
-
-        const currentRejectionPercent = calculatePercentage(currentRejected, activeLeads.length);
-        const previousRejectionPercent = calculatePercentage(previousRejected, activeLeads.length);
-        const deltaRejectionPercent = currentRejectionPercent - previousRejectionPercent;
-
-        // Check if all parameters are undefined
-        const allParamsUndefined = !params.period && !params.loanType && !params.associateId;
-
-        return {
-            totalDisbursal: {
-                current: currentDisbursal,
-                previous: previousDisbursal,
-                deltaPercent
-            },
-            ...(allParamsUndefined && {
-                activeLeads: {
-                    count: activeLeads.length,
-                    unique: uniqueSet.size
-                }
-            }),
-            leadsAdded: {
-                count: leadsAdded.length,
-                unique: leadsAddedUniqueSet.size
-            },
-            ...(commissionEarned && { commissionEarned }),
-            approvalRate: {
-                currentPercent: currentApprovalPercent,
-                previousPercent: previousApprovalPercent,
-                deltaPercent: deltaApprovalPercent
-            },
-            rejectionRate: {
-                currentPercent: currentRejectionPercent,
-                previousPercent: previousRejectionPercent,
-                deltaPercent: deltaRejectionPercent
-            }
+            status: "approved",
         };
+
+        if (params.loanType) currentApprovalbaseFilter["loan.type"] = params.loanType;
+        if (params.associateId) currentApprovalbaseFilter["assocaite_Lead_Id"] = params.associateId;
+
+        // Get filtered leads
+        const filteredLeads = await CombinedUser.find(currentApprovalbaseFilter);
+
+        const leadsThisMonth = filteredLeads.filter((lead) =>
+            dayjs(lead.updatedAt).isSameOrAfter(currentMonthStart)
+        );
+
+        const leadsPrevMonth = filteredLeads.filter((lead) =>
+            dayjs(lead.updatedAt).isBetween(prevMonthStart, prevMonthEnd, null, "[]")
+        );
+
+            const sumLoanAmount = (leads: any[]) =>
+            leads.reduce((sum, lead) => {
+                const amount = lead.loan?.amount ?? 0;
+                return sum + amount;
+            }, 0);
+
+        const totalApprovedLoanThisMonth = sumLoanAmount(leadsThisMonth);
+        const totalApprovedLoanPrevMonth = sumLoanAmount(leadsPrevMonth);
+        const deltaPercentforApprovalStatus = calculateDeltaPercentage(totalApprovedLoanThisMonth, totalApprovedLoanPrevMonth);
+        // current Approval logic ends-------------------------
+
+         // active Leads logic starts-------------------------
+        const currentMonth = dayjs().format("YYYY-MM");
+        const isCurrentMonth = !params.period || params.period === currentMonth;
+        const totalActiveLead = await getActiveLead(params,currentMonth);
+        // active Leads logic ends---------------------------
+
+        // Total Disbursed logic start ----------------------
+        const totalDisbursedFilter: any = {
+            lead_Id: { $in: relatedLeadIds },
+        };
+
+        if (params.loanType) totalDisbursedFilter["lender.loanType"] = params.loanType;
+
+        const totalDisbursedLeads = await PartnerPayoutModel.find(totalDisbursedFilter);
+
+        const totalDisbursedThisMonth = totalDisbursedLeads.filter((lead) =>
+            dayjs(lead.createdAt).isSameOrAfter(currentMonthStart)
+        );
+
+        const totalDisbursedleadsPrevMonth = totalDisbursedLeads.filter((lead) =>
+            dayjs(lead.createdAt).isBetween(prevMonthStart, prevMonthEnd, null, "[]")
+        );
+        const totalDisbursedsumLoanAmount = (leads: any[]) =>
+            leads.reduce((sum, lead) => {
+                const amount = lead?.disbursedAmount ?? 0;
+                return sum + amount;
+            }, 0);
+        const totalDisbursedsumLoanAmountThisMonth = totalDisbursedsumLoanAmount(totalDisbursedThisMonth);
+        const totalDisbursedsumLoanAmountPrevMonth = totalDisbursedsumLoanAmount(totalDisbursedleadsPrevMonth);
+        const DisbursedDeltaPercentforApprovalStatus = calculateDeltaPercentage(totalDisbursedsumLoanAmountThisMonth, totalDisbursedsumLoanAmountPrevMonth);
+        // Total Disbursed logic end ----------------------
+
+        //Rejection rate logic start---------------------
+         const totalRejectionLeads: any = {
+            status : "rejected"
+        };
+        if (params.loanType) totalRejectionLeads["loan.type"] = params.loanType;
+
+        const totalRejectedLeads = await CombinedUser.find(totalRejectionLeads);
+
+        const totalRejectedThisMonth = totalRejectedLeads.filter((lead) =>
+            dayjs(lead.updatedAt).isSameOrAfter(currentMonthStart)
+        );
+
+        const totalRejectedPrevMonth = totalRejectedLeads.filter((lead) =>
+            dayjs(lead.updatedAt).isBetween(prevMonthStart, prevMonthEnd, null, "[]")
+        );
+
+        const totalLeadsIn: any = {
+        status: { $in: ["New", "Pending"] }
+        };
+
+        const totalLeads = await CombinedUser.find(totalLeadsIn);
+
+        const totalLeadsThisMonth = totalLeads.filter((lead) =>
+            dayjs(lead.updatedAt).isSameOrAfter(currentMonthStart)
+        );
+
+        const totalLeadsPrevMonth = totalLeads.filter((lead) =>
+            dayjs(lead.updatedAt).isBetween(prevMonthStart, prevMonthEnd, null, "[]")
+        );
+
+        const timelines = await Timeline.find({
+            status: { $in: ["pending", "closed"] },
+            createdAt: { $gte: prevMonthStart, $lte: currentMonthEnd },
+        }).sort({ leadId: 1, createdAt: 1 });
+
+        const leadMap = new Map();
+
+        timelines.forEach((entry) => {
+            const { leadId, status, createdAt } = entry;
+            if (!leadMap.has(leadId)) {
+                leadMap.set(leadId, []);
+            }
+            leadMap.get(leadId).push({ status, createdAt });
+        });
+
+        let prevMonthCount = 0;
+        let currentMonthCount = 0;
+
+        for (const [leadId, statusLogs] of leadMap.entries()) {
+            let pendingCount = 0;
+            let closedCount = 0;
+            let firstPendingDate = null;
+            let firstClosedDate = null;
+
+            for (const { status, createdAt } of statusLogs) {
+                if (status === "pending") {
+                    pendingCount++;
+                    if (!firstPendingDate) firstPendingDate = createdAt;
+                }
+                if (status === "closed") {
+                    closedCount++;
+                    if (!firstClosedDate) firstClosedDate = createdAt;
+                }
+            }
+
+            // Only consider leads with exactly one pending and one closed,
+            // and where pending comes before closed
+            if (pendingCount === 1 && closedCount === 1 && firstPendingDate < firstClosedDate) {
+                if (firstClosedDate >= currentMonthStart && firstClosedDate <= currentMonthEnd) {
+                    currentMonthCount++;
+                } else if (firstClosedDate >= prevMonthStart && firstClosedDate <= prevMonthEnd) {
+                    prevMonthCount++;
+                }
+            }
+        }
+        const calculateRejectionRatio = (
+            rejectedLeadCount: number,
+            totalLeadCount: number
+            ): number => {
+            if (totalLeadCount === 0) return 0;
+
+            const ratio = rejectedLeadCount / totalLeadCount * 100;
+            return parseFloat(ratio.toFixed(2)); 
+            };
+            const totalthismonth = currentMonthCount + totalLeadsThisMonth.length
+            const totalPrevmonth = prevMonthCount + totalLeadsPrevMonth.length
+            const rejectRationThisMonth = calculateRejectionRatio(totalRejectedThisMonth.length,totalthismonth );  
+            const rejectRationPrevMonth = calculateRejectionRatio(totalRejectedPrevMonth.length,totalPrevmonth ); 
+            const rejectionRationDeltaPercent = rejectRationThisMonth - rejectRationPrevMonth;  
+            //Rejection rate logic end---------------------
+
+            //lead added logic start------------------------
+            const leadAddedFilter: any = {
+                role : "lead"
+            };
+
+            if (params.loanType) leadAddedFilter["loan.type"] = params.loanType;
+            if (params.associateId) leadAddedFilter["assocaite_Lead_Id"] = params.associateId;
+
+            const activeLeadThisMonth = await CombinedUser.find({
+                    createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
+                    ...leadAddedFilter,
+                    }).select("email mobile status");
+
+            const uniqueSetThisMonth = new Set<string>();
+                    activeLeadThisMonth.forEach((lead) => {
+                        const key = `${lead.email}-${lead.mobile}`;
+                        uniqueSetThisMonth.add(key);
+                    });       
+         //lead added logic end------------------------
+         //commision earned logic start----------------
+         const commisionearnedFilter: any = {
+        };
+        if (params.loanType) commisionearnedFilter["lender.loanType"] = params.loanType;
+
+        const currentMonthPayouts = await PartnerPayoutModel.find({
+            ...commisionearnedFilter,
+            createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
+        });
+
+        // Previous month payouts
+        const prevMonthPayouts = await PartnerPayoutModel.find({
+            ...commisionearnedFilter,
+            createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd },
+        });
+
+        // Helper to calculate total commission
+        const calculateCommission = (payouts: any[]) => {
+            let grossTotal = 0;
+            let tdsTotal = 0;
+            let netTotal = 0;
+
+            payouts.forEach(payout => {
+                const commission = payout.commission ?? 0;
+                const disbursed = payout.disbursedAmount ?? 0;
+                const gross = (disbursed * commission) / 100;
+                const tds = gross * 0.02;
+                const net = gross - tds;
+
+                grossTotal += gross;
+                tdsTotal += tds;
+                netTotal += net;
+            });
+
+            return { grossTotal, tdsTotal, netTotal };
+        };
+
+        const currentMonthCommission = calculateCommission(currentMonthPayouts);
+        const prevMonthCommission = calculateCommission(prevMonthPayouts);
+        const deltaPercentCommision = calculateDeltaPercentage(currentMonthCommission.netTotal , prevMonthCommission.netTotal )
+
+
+
+        return{
+            commissionEarned :{
+                current_month_amount: currentMonthCommission.netTotal,
+                previous_month_amount: prevMonthCommission.netTotal,
+                delta_percentage :deltaPercentCommision
+            },
+            leadAdded : {
+                leads_added : activeLeadThisMonth.length,
+                unique_lead : uniqueSetThisMonth.size
+            },
+            rejectionRation: {
+                rejection_ratio_this_month : rejectRationThisMonth,
+                rejection_ratio_prev_month : rejectRationPrevMonth,
+                delta_percentage : rejectionRationDeltaPercent
+            },
+            totalDisbursal: {
+                current_month_amount: totalDisbursedsumLoanAmountThisMonth,
+                previous_month_amount: totalDisbursedsumLoanAmountPrevMonth,
+                delta_percentage :DisbursedDeltaPercentforApprovalStatus
+            },
+            approvalStatus: {
+                current_month_amount: totalApprovedLoanThisMonth,
+                previous_month_amount: totalApprovedLoanPrevMonth,
+                delta_percentage :deltaPercentforApprovalStatus
+            },
+            ...(isCurrentMonth && {
+                activeLeads: {
+                    totalActiveLeads: totalActiveLead.totalCount,
+                    uniqueCount: totalActiveLead.uniqueCount
+                }
+            })
+        }
     },
 
     async getRejectionReasonCount(params: RejectionReasonCount) {

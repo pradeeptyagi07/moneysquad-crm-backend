@@ -54,7 +54,8 @@ export const generateUniqueLeadId = async (): Promise<string> => {
         { upsert: true, new: true }
     );
 
-    const padded = String(result.seq).padStart(5, '0');
+    const randomNumber = Math.floor(Math.random() * 100000); 
+    const padded = String(randomNumber).padStart(5, '0');
     return `ML${padded}`;
 };
 

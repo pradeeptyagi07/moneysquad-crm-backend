@@ -15,7 +15,7 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction):
         (req as any).user = decoded;
         next(); // Proceed to next middleware/controller
     } catch (error) {
-        res.status(400).json({ error: "Invalid token" });
+        res.status(401).json({ error: "Invalid token" });
         return;
     }
 };
