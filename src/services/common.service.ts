@@ -22,7 +22,7 @@ export const sendContactEmail = async (data: ContactData) => {
 
   await sendEmail({
     to: process.env.MAIL_USER!, // your email
-    subject,
+    subject: "🎉 Welcome to MoneySquad – Your Account is Now Active!",
     html,
   });
 };
@@ -34,7 +34,7 @@ export const sendPasswordEmail = async (to: string, name: string, password: stri
 
   await sendEmail({
     to,
-    subject: "🎉 Welcome to MoneySquad – Your Account is Now Active!",
+    subject: " MoneySquad – Temporary Password",
     html,
   });
 };
