@@ -36,6 +36,7 @@ dotenv.config();
 initSentry();
 
 const app = express();
+app.set('trust proxy', true);
 
 
 // — Standard security & parsing middleware —

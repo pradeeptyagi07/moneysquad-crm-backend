@@ -22,19 +22,37 @@ export const sendContactEmail = async (data: ContactData) => {
 
   await sendEmail({
     to: process.env.MAIL_USER!, // your email
-    subject: "🎉 Welcome to MoneySquad – Your Account is Now Active!",
+    subject: "",
     html,
   });
 };
 
 
 export const sendPasswordEmail = async (to: string, name: string, password: string) => {
+  const templatePath = path.join(__dirname, "../template/welcomeEmail.ejs");
+  const html = await ejs.renderFile(templatePath, { name, email: to, password });
+
+  await sendEmail({
+    to,
+    subject: "🎉 Welcome to MoneySquad – Your Account is Now Active!",
+    html,
+      attachments: [
+      {
+        filename: "Partner_Service_Agreement.pdf",
+        path: path.join(__dirname, "../assets/ConfidentialDocuments/MoneySquad_Partner_Service_Agreement.pdf"),
+      },
+    ],
+  });
+};
+
+
+export const sendForgotPassword = async (to: string, name: string, password: string) => {
   const templatePath = path.join(__dirname, "../template/sendPassword.ejs");
   const html = await ejs.renderFile(templatePath, { name, email: to, password });
 
   await sendEmail({
     to,
-    subject: " MoneySquad – Temporary Password",
+    subject: "🔐 Your Password Reset for MoneySquad",
     html,
   });
 };

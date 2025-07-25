@@ -2,7 +2,7 @@ import { CombinedUser } from "../model/user/user.model";
 import { hashPassword, verifyPassword } from "../utils/hash";
 import { generateOTP, generateRandomPassword } from "../utils/helper";
 import { generateToken } from "../utils/jwt";
-import { sendOtp, sendPasswordEmail } from "./common.service";
+import { sendForgotPassword, sendOtp, } from "./common.service";
 
 
 export const authService = {
@@ -66,7 +66,7 @@ export const authService = {
 
     user.password = await hashPassword(newPassword);
     await user.save();
-    await sendPasswordEmail(email, user.firstName || "User", newPassword);
+    await sendForgotPassword(email, user.firstName || "User", newPassword);
   },
 
   async resetPassword(userId: string, currentPassword: string, newPassword: string) {
