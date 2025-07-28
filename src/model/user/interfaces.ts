@@ -70,6 +70,7 @@ export interface ICombinedUser extends Document {
   loan: {
     type: string;
     amount: number;
+    loan_id: string,
   };
   lenderType?: string;
   assocaite_Lead_Id?: string;

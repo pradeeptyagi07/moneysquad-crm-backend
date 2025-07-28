@@ -173,7 +173,7 @@ const getRelatedLeadIds = async (userContext: UserContext): Promise<mongoose.Typ
             return leads.map(l => l._id as mongoose.Types.ObjectId);
         }
         case "associate": {
-            const leads = await CombinedUser.find({ assocaite_Id: user._id, role: "lead" }).select("_id");
+            const leads = await CombinedUser.find({ assocaite_Lead_Id: user._id, role: "lead" }).select("_id");
             return leads.map(l => l._id as mongoose.Types.ObjectId);
         }
         default:
@@ -181,24 +181,27 @@ const getRelatedLeadIds = async (userContext: UserContext): Promise<mongoose.Typ
     }
 };
         const getActiveLead = async (
-                    params: SnapshotData,
-                    currentMonthStr: string
-                    ): Promise<{ uniqueCount: number; totalCount: number }> => {
-                    const activeLeads = await CombinedUser.find({
-                        status: { $in: ["new lead", "pending", "login", "approved"] },
-                    }).select("email mobile status");
+                params: SnapshotData,
+                currentMonthStr: string,
+                filter: any // Accept your custom filter
+            ): Promise<{ uniqueCount: number; totalCount: number }> => {
+                const activeLeads = await CombinedUser.find({
+                    status: { $in: ["new lead", "pending", "login", "approved"] },
+                    ...filter // Merge your custom filter here
+                });
 
-                    const uniqueSet = new Set<string>();
-                    activeLeads.forEach((lead) => {
-                        const key = `${lead.email}-${lead.mobile}`;
-                        uniqueSet.add(key);
-                    });
+                const uniqueSet = new Set<string>();
+                activeLeads.forEach((lead) => {
+                    const key = `${lead.email}-${lead.mobile}`;
+                    uniqueSet.add(key);
+                });
 
-                    return {
-                        uniqueCount: uniqueSet.size,
-                        totalCount: activeLeads.length,
-                    };
-        };
+                return {
+                    uniqueCount: uniqueSet.size,
+                    totalCount: activeLeads.length,
+                };
+            };
+
 
         
 
@@ -402,14 +405,14 @@ export const dashboardService = {
             status: "approved",
         };
 
-        if (params.loanType) currentApprovalbaseFilter["loan.type"] = params.loanType;
+        if (params.loanType) currentApprovalbaseFilter["loan.loan_id"] = params.loanType;
         if (params.associateId) currentApprovalbaseFilter["assocaite_Lead_Id"] = params.associateId;
 
         // Get filtered leads
         const filteredLeads = await CombinedUser.find(currentApprovalbaseFilter);
 
         const leadsThisMonth = filteredLeads.filter((lead) =>
-            dayjs(lead.updatedAt).isSameOrAfter(currentMonthStart)
+            dayjs(lead.updatedAt).isBetween(currentMonthStart, currentMonthEnd, null, '[]')
         );
 
         const leadsPrevMonth = filteredLeads.filter((lead) =>
@@ -428,9 +431,12 @@ export const dashboardService = {
         // current Approval logic ends-------------------------
 
          // active Leads logic starts-------------------------
+         const leadFilter: any = {
+            _id: { $in: relatedLeadIds },
+        };
         const currentMonth = dayjs().format("YYYY-MM");
         const isCurrentMonth = !params.period || params.period === currentMonth;
-        const totalActiveLead = await getActiveLead(params,currentMonth);
+        const totalActiveLead = await getActiveLead(params,currentMonth,leadFilter);
         // active Leads logic ends---------------------------
 
         // Total Disbursed logic start ----------------------
@@ -438,13 +444,15 @@ export const dashboardService = {
             lead_Id: { $in: relatedLeadIds },
         };
 
-        if (params.loanType) totalDisbursedFilter["lender.loanType"] = params.loanType;
+        if (params.loanType) totalDisbursedFilter["lender.loan_id"] = params.loanType;
+        if(params.associateId) totalDisbursedFilter["partner_Id"] = params.associateId
 
         const totalDisbursedLeads = await PartnerPayoutModel.find(totalDisbursedFilter);
 
         const totalDisbursedThisMonth = totalDisbursedLeads.filter((lead) =>
-            dayjs(lead.createdAt).isSameOrAfter(currentMonthStart)
-        );
+        dayjs(lead.createdAt).isBetween(currentMonthStart, currentMonthEnd, null, '[]')
+    );
+
 
         const totalDisbursedleadsPrevMonth = totalDisbursedLeads.filter((lead) =>
             dayjs(lead.createdAt).isBetween(prevMonthStart, prevMonthEnd, null, "[]")
@@ -461,14 +469,15 @@ export const dashboardService = {
 
         //Rejection rate logic start---------------------
          const totalRejectionLeads: any = {
+            _id: { $in: relatedLeadIds },
             status : "rejected"
         };
-        if (params.loanType) totalRejectionLeads["loan.type"] = params.loanType;
+        if (params.loanType) totalRejectionLeads["loan.loan_id"] = params.loanType;
 
         const totalRejectedLeads = await CombinedUser.find(totalRejectionLeads);
 
         const totalRejectedThisMonth = totalRejectedLeads.filter((lead) =>
-            dayjs(lead.updatedAt).isSameOrAfter(currentMonthStart)
+            dayjs(lead.updatedAt).isBetween(currentMonthStart, currentMonthEnd, null, '[]')
         );
 
         const totalRejectedPrevMonth = totalRejectedLeads.filter((lead) =>
@@ -482,7 +491,7 @@ export const dashboardService = {
         const totalLeads = await CombinedUser.find(totalLeadsIn);
 
         const totalLeadsThisMonth = totalLeads.filter((lead) =>
-            dayjs(lead.updatedAt).isSameOrAfter(currentMonthStart)
+            dayjs(lead.updatedAt).isBetween(currentMonthStart, currentMonthEnd, null, '[]')
         );
 
         const totalLeadsPrevMonth = totalLeads.filter((lead) =>
@@ -552,16 +561,17 @@ export const dashboardService = {
 
             //lead added logic start------------------------
             const leadAddedFilter: any = {
+                _id: { $in: relatedLeadIds },
                 role : "lead"
             };
 
-            if (params.loanType) leadAddedFilter["loan.type"] = params.loanType;
+            if (params.loanType) leadAddedFilter["loan.loan_id"] = params.loanType;
             if (params.associateId) leadAddedFilter["assocaite_Lead_Id"] = params.associateId;
 
             const activeLeadThisMonth = await CombinedUser.find({
                     createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
-                    ...leadAddedFilter,
-                    }).select("email mobile status");
+                    ...leadAddedFilter
+                    });
 
             const uniqueSetThisMonth = new Set<string>();
                     activeLeadThisMonth.forEach((lead) => {
@@ -571,8 +581,10 @@ export const dashboardService = {
          //lead added logic end------------------------
          //commision earned logic start----------------
          const commisionearnedFilter: any = {
+            lead_Id: { $in: relatedLeadIds }
         };
-        if (params.loanType) commisionearnedFilter["lender.loanType"] = params.loanType;
+        if (params.loanType) commisionearnedFilter["lender.loan_id"] = params.loanType;
+        if (params.associateId) commisionearnedFilter["partner_Id"] = params.associateId
 
         const currentMonthPayouts = await PartnerPayoutModel.find({
             ...commisionearnedFilter,
@@ -695,107 +707,39 @@ export const dashboardService = {
     },
 
     async getTrends(params: TrendsData) {
-        const { trendMonths = 3 } = params;
         const userContext = await getUserContext(params.userId);
-        const { user } = userContext;
+         const relatedLeadIds = await getRelatedLeadIds(userContext);
+         const selectedPeriod = params.period ?? dayjs().format("YYYY-MM");
 
-        const monthSeries = buildMonthSeries(trendMonths);
-        const startDate = dayjs(monthSeries[0]).toDate();
-
-        // Build lead match query
-        const leadMatch: any = {
-            role: "lead",
-            createdAt: { $gte: startDate }
+        const currentMonthStart = dayjs(`${selectedPeriod}-01`).startOf("month").toDate();
+        
+        const leadAddedFilter: any = {
+                _id: { $in: relatedLeadIds },
+                role : "lead"
+            };
+            const activeLead = await CombinedUser.find({
+                    createdAt: { $gte: currentMonthStart, },
+                    ...leadAddedFilter
+                    });
+        
+        const totalDisbursedFilter: any = {
+            lead_Id: { $in: relatedLeadIds },
         };
 
-        if (params.loanType) {
-            const loanName = await LoanType.findOne({ _id: params.loanType });
-            if (loanName) {
-                leadMatch["loan.type"] = loanName.name;
-            }
-        }
+        const totalDisbursedLeads = await PartnerPayoutModel.find(totalDisbursedFilter);
 
-        if (params.associateId) {
-            leadMatch["assocaite_Lead_Id"] = new mongoose.Types.ObjectId(params.associateId);
-        }
+        const totalDisbursed = totalDisbursedLeads.filter((lead) =>
+        dayjs(lead.createdAt).isSameOrAfter(currentMonthStart));  
+        
+        const totalDisbursedsumLoanAmount = (leads: any[]) =>
+            leads.reduce((sum, lead) => {
+                const amount = lead?.disbursedAmount ?? 0;
+                return sum + amount;
+            }, 0);
+        const totalDisbursedsumLoanAmounts = totalDisbursedsumLoanAmount(totalDisbursed);
+        
+        return { activeLead: activeLead.length, totalDisbursed: totalDisbursed.length, totalDisbursedsumLoanAmounts };
 
-        // Get leads aggregation
-        const leadsAgg = await CombinedUser.aggregate([
-            { $match: leadMatch },
-            {
-                $group: {
-                    _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
-                    count: { $sum: 1 }
-                }
-            },
-            { $sort: { _id: 1 } }
-        ]);
-
-        const leadsAdded = fillSeries(
-            monthSeries,
-            leadsAgg.map((i) => ({ month: i._id, value: i.count }))
-        );
-
-        // Get disbursals aggregation
-        const disbursalMatch: any = {
-            actualDisbursedDate: { $gte: startDate }
-        };
-
-        if (params.associateId || params.loanType) {
-            const userMatch: any = {};
-            if (params.associateId) userMatch["assocaite_Lead_Id"] = new mongoose.Types.ObjectId(params.associateId);
-            if (params.loanType) userMatch["loan.type"] = params.loanType;
-
-            const matchedUsers = await CombinedUser.find(userMatch).select("_id");
-            const leadUserIds = matchedUsers.map(user => user._id as mongoose.Types.ObjectId);
-            disbursalMatch["leadUserId"] = { $in: leadUserIds };
-        }
-
-        console.log("disbursalMatch", disbursalMatch);
-        const disbursalAgg = await DisbursedForm.aggregate([
-            { $match: disbursalMatch },
-            {
-                $group: {
-                    _id: { $dateToString: { format: "%Y-%m", date: "$actualDisbursedDate" } },
-                    count: { $sum: 1 }
-                }
-            },
-            { $sort: { _id: 1 } }
-        ]);
-
-        const disbursals = fillSeries(
-            monthSeries,
-            disbursalAgg.map((i) => ({ month: i._id, value: i.count }))
-        );
-
-        // Get payouts for partners
-        let payouts: { month: string; value: number }[] | null = null;
-
-        if (user.role === "partner") {
-            const payoutAgg = await PartnerPayoutModel.aggregate([
-                {
-                    $match: {
-                        partner_Id: new mongoose.Types.ObjectId(params.userId),
-                        payoutStatus: "paid",
-                        updatedAt: { $gte: startDate }
-                    }
-                },
-                {
-                    $group: {
-                        _id: { $dateToString: { format: "%Y-%m", date: "$updatedAt" } },
-                        count: { $sum: 1 }
-                    }
-                },
-                { $sort: { _id: 1 } }
-            ]);
-
-            payouts = fillSeries(
-                monthSeries,
-                payoutAgg.map((i) => ({ month: i._id, value: i.count }))
-            );
-        }
-
-        return { leadsAdded, disbursals, payouts };
     },
 
     async getMatrix(params: MatrixData) {
@@ -914,7 +858,7 @@ export const dashboardService = {
             throw new Error('User is not a partner');
         }
 
-        user.agreementAccepted = true;
+         user.agreementAccepted = true;
         user.agreementAcceptedLogs = [{
             timestamp: new Date(),
             ip: userIP

@@ -58,6 +58,7 @@ export const documentsSchema = new Schema({
 export const leadLoanSchema = new Schema({
   type: { type: String, required: true },
   amount: { type: Number, required: true },
+  loan_id: {type:String}
 });
 
 export const addressSchema = new Schema({

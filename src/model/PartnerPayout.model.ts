@@ -19,6 +19,7 @@ export interface IPartnerPayout extends Document {
   lender: {
     name: string;
     loanType: string;
+    loan_id :string;
   };
   disbursedId: mongoose.Types.ObjectId;
   disbursedAmount: number;
@@ -61,6 +62,7 @@ const PartnerPayoutSchema: Schema<IPartnerPayout> = new Schema(
     lender: {
       name: { type: String },
       loanType: { type: String },
+      loan_id: {type:String}
     },
     disbursedId: {
       type: mongoose.Schema.Types.ObjectId,

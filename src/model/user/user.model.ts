@@ -13,6 +13,19 @@ import {
 
 const { ObjectId } = Schema.Types;
 
+export const LoanTypeIdMap = {
+  "PL-Term Loan": "683e8b66048df4368f97003b",
+  "PL-Overdraft": "683e8b6b048df4368f97003d",
+  "BL-Term Loan": "683e8b70048df4368f97003f",
+  "BL-Overdraft": "683e8b75048df4368f970041",
+  "SEPL-Term Loan": "683e8b7a048df4368f970043",
+  "SEPL-Overdraft": "683e8b80048df4368f970045",
+} as const;
+
+export type LoanType = keyof typeof LoanTypeIdMap;
+
+
+
 const combinedUserSchema = new Schema<ICombinedUser>(
     {
         firstName: { type: String },
@@ -46,18 +59,22 @@ const combinedUserSchema = new Schema<ICombinedUser>(
             enum: [],
             default: "n/a"
         },
-        agreementAccepted: {
-            type: Boolean,
-            default: false,
-            required: function () {
+      agreementAccepted: {
+                type: Boolean,
+                required: function () {
                 return this.role === "partner";
             },
         },
-        agreementAcceptedLogs: [
-        {
-            timestamp: { type: Date },
-            ip: { type: String }
-        }],
+        agreementAcceptedLogs: {
+            type: [
+                {
+                    timestamp: { type: Date },
+                    ip: { type: String }
+                }
+            ],
+            default: undefined, // explicitly avoid defaulting to []
+        }
+        ,
         partner_Lead_Id: { type: ObjectId, ref: "CombinedUser" },
         assocaite_Lead_Id: { type: ObjectId, ref: "CombinedUser" },
         applicantProfile: { type: String },

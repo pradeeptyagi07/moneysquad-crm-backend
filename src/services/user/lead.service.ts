@@ -2,7 +2,7 @@ import DisbursedForm from "../../model/disbursedForm.model";
 import PartnerPayoutModel from "../../model/PartnerPayout.model";
 import { Timeline } from "../../model/timeline.model";
 import { Remark } from "../../model/Remarks.model";
-import { CombinedUser } from "../../model/user/user.model";
+import { CombinedUser, LoanType,LoanTypeIdMap } from "../../model/user/user.model";
 import { hashPassword } from "../../utils/hash";
 import { generateRandomPassword, generateUniqueLeadId, uploadFileToS3 } from "../../utils/helper";
 import dayjs from "dayjs";
@@ -66,6 +66,11 @@ export const leadService = {
             assocaite_Lead_Id: assocaite_Id,
             status: finalStatus,
         });
+        
+        const loanType: LoanType = leadData.loantType as LoanType;
+
+        newLead.loan.loan_id = LoanTypeIdMap[loanType];
+
 
         // Save the lead user document
         await newLead.save();
@@ -533,6 +538,8 @@ export const leadService = {
                 warning: false,
                 remark: ""
             });
+            const loanType: LoanType = lead.loan?.type as LoanType;
+            payout.lender.loan_id = LoanTypeIdMap[loanType];
 
             await payout.save()
         }
