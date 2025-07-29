@@ -113,34 +113,33 @@ const getCurrentAndPreviousMonths = (): { current: DateRange; previous: DateRang
 const buildBaseQuery = async (params: BaseParams, userContext: UserContext): Promise<QueryFilters> => {
     const { loanType, associateId, period } = params;
     const { user } = userContext;
+    const relatedLeadId = await getRelatedLeadIds(userContext);
 
-    const baseQuery: any = { role: "lead" };
+    const baseQuery: any = {_id: { $in: relatedLeadId }};
 
     // Add loan type filter
     if (loanType) {
-        const loanName = await LoanType.findOne({ _id: loanType });
-        if (loanName) {
-            baseQuery["loan.type"] = loanName.name;
-        }
+        if (params.loanType) baseQuery["loan.loan_id"] = params.loanType;
+        
     }
 
     // Add associate filter
     if (associateId) {
-        baseQuery["assocaite_Lead_Id"] = associateId;
+        if (params.associateId) baseQuery["assocaite_Lead_Id"] = params.associateId;
     }
 
-    // Add role-based filters
-    switch (user.role) {
-        case "manager":
-            baseQuery.assignedTo = user._id;
-            break;
-        case "partner":
-            baseQuery.partner_Lead_Id = user._id;
-            break;
-        case "associate":
-            baseQuery.assocaite_Lead_Id = user._id;
-            break;
-    }
+    // // Add role-based filters
+    // switch (user.role) {
+    //     case "manager":
+    //         baseQuery.assignedTo = user._id;
+    //         break;
+    //     case "partner":
+    //         baseQuery.partner_Lead_Id = user._id;
+    //         break;
+    //     case "associate":
+    //         baseQuery.assocaite_Lead_Id = user._id;
+    //         break;
+    // }
 
     // Add date range filter
     const dateRange = parseDateRange(period);
@@ -709,37 +708,45 @@ export const dashboardService = {
     async getTrends(params: TrendsData) {
         const userContext = await getUserContext(params.userId);
          const relatedLeadIds = await getRelatedLeadIds(userContext);
-         const selectedPeriod = params.period ?? dayjs().format("YYYY-MM");
+        const numberOfMonths = Number(params.trendMonths ) || 1;
 
-        const currentMonthStart = dayjs(`${selectedPeriod}-01`).startOf("month").toDate();
+        const baseMonth = dayjs(); // current month
+
+        const results: any[] = [];
+
+        for (let i = numberOfMonths - 1; i >= 0; i--) {
+            const monthDate = baseMonth.subtract(i, "month");
+            const currentMonthStart = monthDate.startOf("month").toDate();
+            const currentMonthEnd = monthDate.endOf("month").toDate();
         
         const leadAddedFilter: any = {
                 _id: { $in: relatedLeadIds },
-                role : "lead"
+                role: "lead",
             };
-            const activeLead = await CombinedUser.find({
-                    createdAt: { $gte: currentMonthStart, },
-                    ...leadAddedFilter
+
+            const activeLeads = await CombinedUser.find({
+                createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
+                ...leadAddedFilter,
                     });
         
-        const totalDisbursedFilter: any = {
-            lead_Id: { $in: relatedLeadIds },
-        };
-
-        const totalDisbursedLeads = await PartnerPayoutModel.find(totalDisbursedFilter);
-
-        const totalDisbursed = totalDisbursedLeads.filter((lead) =>
-        dayjs(lead.createdAt).isSameOrAfter(currentMonthStart));  
+            const totalDisbursedLeads = await PartnerPayoutModel.find({
+                lead_Id: { $in: relatedLeadIds },
+                createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
+            });
         
-        const totalDisbursedsumLoanAmount = (leads: any[]) =>
-            leads.reduce((sum, lead) => {
-                const amount = lead?.disbursedAmount ?? 0;
-                return sum + amount;
+            const totalDisbursedsumLoanAmount = totalDisbursedLeads.reduce((sum, lead) => {
+                return sum + (lead?.disbursedAmount ?? 0);
             }, 0);
-        const totalDisbursedsumLoanAmounts = totalDisbursedsumLoanAmount(totalDisbursed);
-        
-        return { activeLead: activeLead.length, totalDisbursed: totalDisbursed.length, totalDisbursedsumLoanAmounts };
 
+            results.push({
+                month: monthDate.format("YYYY-MM"),
+                activeLead: activeLeads.length,
+                totalDisbursed: totalDisbursedLeads.length,
+                totalDisbursedsumLoanAmounts: totalDisbursedsumLoanAmount,
+            });
+        }
+
+        return results;
     },
 
     async getMatrix(params: MatrixData) {
