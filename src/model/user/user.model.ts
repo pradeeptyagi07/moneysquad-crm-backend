@@ -14,15 +14,17 @@ import {
 const { ObjectId } = Schema.Types;
 
 export const LoanTypeIdMap = {
-  "PL_Term_Loan": "683e8b66048df4368f97003b",
-  "PL_Overdraft": "683e8b6b048df4368f97003d",
-  "BL_Term_Loan": "683e8b70048df4368f97003f",
-  "BL_Overdraft": "683e8b75048df4368f970041",
-  "SEPL_Term_Loan": "683e8b7a048df4368f970043",
-  "SEPL_Overdraft": "683e8b80048df4368f970045",
+  "PL_Term_Loan": "68701e0ae2ab002b52ec385e",
+  "PL_Overdraft": "68701e10e2ab002b52ec3860",
+  "BL_Term_Loan": "68701e16e2ab002b52ec3862",
+  "BL_Overdraft": "68701e1be2ab002b52ec3864",
+  "SEPL_Term_Loan": "68701e20e2ab002b52ec3866",
+  "SEPL_Overdraft": "68701e29e2ab002b52ec3868",
 } as const;
 
 export type LoanType = keyof typeof LoanTypeIdMap;
+
+
 
 
 

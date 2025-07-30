@@ -724,6 +724,9 @@ export const dashboardService = {
                 _id: { $in: relatedLeadIds },
                 role: "lead",
             };
+            
+              if (params.loanType) leadAddedFilter["loan.loan_id"] = params.loanType;
+        if (params.associateId) leadAddedFilter["assocaite_Lead_Id"] = params.associateId;
 
             if (params.loanType) leadAddedFilter["loan.loan_id"] = params.loanType;
             if (params.associateId) leadAddedFilter["assocaite_Lead_Id"] = params.associateId;
@@ -772,12 +775,12 @@ export const dashboardService = {
 
         const totalDisbursedLeads = await PartnerPayoutModel.find(totalDisbursedFilter);
 
-        const totalDisbursedThisMonth = totalDisbursedLeads.filter((lead:PartnerPayoutModel) =>
+        const totalDisbursedThisMonth = totalDisbursedLeads.filter((lead:IPartnerPayout) =>
         dayjs(lead.createdAt).isBetween(currentMonthStart, currentMonthEnd, null, '[]')
     );
 
 
-        const totalDisbursedleadsPrevMonth = totalDisbursedLeads.filter((lead: PartnerPayoutModel) =>
+        const totalDisbursedleadsPrevMonth = totalDisbursedLeads.filter((lead: IPartnerPayout) =>
             dayjs(lead.createdAt).isBetween(prevMonthStart, prevMonthEnd, null, "[]")
         );
 
@@ -898,7 +901,7 @@ export const dashboardService = {
 
             const totalDisbursedsLeads = await PartnerPayoutModel.find(totalDisbursedsFilter);
                         // --- CURRENT MONTH ---
-            const totalDisbursedsThisMonth = totalDisbursedsLeads.filter((lead: PartnerPayoutModel) =>
+            const totalDisbursedsThisMonth = totalDisbursedsLeads.filter((lead: IPartnerPayout) =>
                 dayjs(lead.createdAt).isBetween(currentMonthStart, currentMonthEnd, null, '[]')
             );
             function sumDisbursedAmount(leads: { disbursedAmount?: number }[]): number {
@@ -912,16 +915,18 @@ export const dashboardService = {
                 totalLeads_ThisMonth > 0 ? totalDisbursedAmountThisMonth / totalLeads_ThisMonth : 0;
 
             // --- PREVIOUS MONTH ---
-            const totalDisbursedsPrevMonth = totalDisbursedsLeads.filter((lead: PartnerPayoutModel) =>
+            const totalDisbursedsPrevMonth = totalDisbursedsLeads.filter((lead: IPartnerPayout) =>
                 dayjs(lead.createdAt).isBetween(prevMonthStart, prevMonthEnd, null, '[]')
             );
 
             const totalLeadsPrev_Month = totalDisbursedsPrevMonth.length;
 
-            const totalDisbursedAmountPrevMonth = totalDisbursedsThisMonth(totalDisbursedsPrevMonth);
+            const totalDisbursedAmountPrevMonth = sumDisbursedAmount(totalDisbursedsPrevMonth);
 
             const avgDisbursedAmountPrevMonth =
         totalLeadsPrev_Month > 0 ? totalDisbursedAmountPrevMonth / totalLeadsPrev_Month : 0;  
+
+        const deltaPercentage =calculateDeltaPercentage(avgDisbursedAmountThisMonth,avgDisbursedAmountPrevMonth)
 
             //-------------
              const baseFilter: any = {
@@ -965,6 +970,8 @@ export const dashboardService = {
                 }
                 const thisavgMonth = sumDisbursedCurrent/ disbursalTarget;
                 const prevavgMonth = sumDisbursedPrev/ disbursalTarget
+                                const targetPercentage =calculateDeltaPercentage(thisavgMonth, prevavgMonth)
+
 
         return{
             disbursalRate:{
@@ -980,12 +987,12 @@ export const dashboardService = {
             avgLoanAmount:{
                 current_month_amount: avgDisbursedAmountThisMonth,
                 previous_month_amount: avgDisbursedAmountPrevMonth,
-                delta_percentage :avgDisbursedAmountThisMonth-avgDisbursedAmountPrevMonth
+                delta_percentage :deltaPercentage,
             },
             targetAchieved:{
                 current_month_amount: thisavgMonth,
                 previous_month_amount: prevavgMonth,
-                delta_percentage :thisavgMonth-prevavgMonth
+                delta_percentage :targetPercentage,
             }
         }
     },
