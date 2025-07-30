@@ -1,5 +1,13 @@
 import mongoose, { Schema, Document } from "mongoose";
 
+export enum PartnerDisbursalTarget {
+  gold = 100000000,         // 1Cr
+  diamond = 200000000,      // 2Cr
+  platinum = 500000000,     // 5Cr
+  leadSharing = 5000000,    // 50L
+  DEFAULT = 100000000,
+}
+
 export interface IPartnerPayout extends Document {
   lead_Id: mongoose.Types.ObjectId;
   partner_Id: mongoose.Types.ObjectId;

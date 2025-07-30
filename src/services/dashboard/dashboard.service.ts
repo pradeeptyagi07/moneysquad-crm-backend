@@ -3,12 +3,13 @@ import DisbursedForm from "../../model/disbursedForm.model";
 import { CombinedUser } from "../../model/user/user.model";
 import { Timeline } from "../../model/timeline.model";
 import mongoose from "mongoose";
-import PartnerPayoutModel from "../../model/PartnerPayout.model";
+import PartnerPayoutModel  from "../../model/PartnerPayout.model";
 import { LoanType } from "../../model/loan.model";
 import { start } from "repl";
 import { sendPartnerAgreementEmail } from "../common.service";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
 import isBetween from "dayjs/plugin/isBetween";
+import { PartnerDisbursalTarget, IPartnerPayout } from "../../model/PartnerPayout.model"
 
 dayjs.extend(isSameOrAfter);
 dayjs.extend(isBetween);
@@ -448,12 +449,12 @@ export const dashboardService = {
 
         const totalDisbursedLeads = await PartnerPayoutModel.find(totalDisbursedFilter);
 
-        const totalDisbursedThisMonth = totalDisbursedLeads.filter((lead) =>
+        const totalDisbursedThisMonth = totalDisbursedLeads.filter((lead: IPartnerPayout) =>
         dayjs(lead.createdAt).isBetween(currentMonthStart, currentMonthEnd, null, '[]')
     );
 
 
-        const totalDisbursedleadsPrevMonth = totalDisbursedLeads.filter((lead) =>
+        const totalDisbursedleadsPrevMonth = totalDisbursedLeads.filter((lead:IPartnerPayout) =>
             dayjs(lead.createdAt).isBetween(prevMonthStart, prevMonthEnd, null, "[]")
         );
         const totalDisbursedsumLoanAmount = (leads: any[]) =>
@@ -707,7 +708,7 @@ export const dashboardService = {
 
     async getTrends(params: TrendsData) {
         const userContext = await getUserContext(params.userId);
-         const relatedLeadIds = await getRelatedLeadIds(userContext);
+        const relatedLeadIds = await getRelatedLeadIds(userContext);
         const numberOfMonths = Number(params.trendMonths ) || 1;
 
         const baseMonth = dayjs(); // current month
@@ -718,25 +719,28 @@ export const dashboardService = {
             const monthDate = baseMonth.subtract(i, "month");
             const currentMonthStart = monthDate.startOf("month").toDate();
             const currentMonthEnd = monthDate.endOf("month").toDate();
-        
-        const leadAddedFilter: any = {
+
+            const leadAddedFilter: any = {
                 _id: { $in: relatedLeadIds },
                 role: "lead",
             };
 
+            if (params.loanType) leadAddedFilter["loan.loan_id"] = params.loanType;
+            if (params.associateId) leadAddedFilter["assocaite_Lead_Id"] = params.associateId;
             const activeLeads = await CombinedUser.find({
                 createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
                 ...leadAddedFilter,
-                    });
-        
+            });
+
             const totalDisbursedLeads = await PartnerPayoutModel.find({
                 lead_Id: { $in: relatedLeadIds },
                 createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
             });
-        
-            const totalDisbursedsumLoanAmount = totalDisbursedLeads.reduce((sum, lead) => {
-                return sum + (lead?.disbursedAmount ?? 0);
-            }, 0);
+            function sumDisbursedAmount(leads: { disbursedAmount?: number }[]): number {
+                    return leads.reduce((sum, lead) => sum + (lead.disbursedAmount ?? 0), 0);
+                }
+
+            const totalDisbursedsumLoanAmount = sumDisbursedAmount(totalDisbursedLeads);
 
             results.push({
                 month: monthDate.format("YYYY-MM"),
@@ -751,108 +755,239 @@ export const dashboardService = {
 
     async getMatrix(params: MatrixData) {
         const userContext = await getUserContext(params.userId);
-        const { user } = userContext;
+        const relatedLeadIds = await getRelatedLeadIds(userContext);
+        const selectedPeriod = params.period ?? dayjs().format("YYYY-MM");
 
-        const baseQuery: any = { role: "lead" };
+        const currentMonthStart = dayjs(`${selectedPeriod}-01`).startOf("month").toDate();
+        const prevMonthStart = dayjs(currentMonthStart).subtract(1, "month").startOf("month").toDate();
+        const prevMonthEnd = dayjs(currentMonthStart).subtract(1, "day").endOf("day").toDate();
+        const currentMonthEnd = dayjs(currentMonthStart).endOf("month").toDate();
 
-        // Add role-based filters
-        switch (user.role) {
-            case "manager":
-                baseQuery.assignedTo = user._id;
-                break;
-            case "partner":
-                baseQuery.partner_Lead_Id = user._id;
-                break;
-            case "associate":
-                baseQuery.assocaite_Lead_Id = user._id;
-                break;
-        }
+        const totalDisbursedFilter: any = {
+            lead_Id: { $in: relatedLeadIds },
+        };
 
-        // Get date range
-        const start = params.period
-            ? dayjs(params.period).startOf("month").toDate()
-            : dayjs().startOf("month").toDate();
-        const end = params.period
-            ? dayjs(params.period).endOf("month").toDate()
-            : dayjs().endOf("month").toDate();
+        if (params.loanType) totalDisbursedFilter["lender.loan_id"] = params.loanType;
+        if(params.associateId) totalDisbursedFilter["partner_Id"] = params.associateId
 
-        // Get leads and disbursals in parallel
-        const [leads, disbursals] = await Promise.all([
-            CombinedUser.find(baseQuery).select("leadId status"),
-            DisbursedForm.find({
-                leadUserId: { $in: (await CombinedUser.find(baseQuery).select("_id")).map(l => l._id) },
-                actualDisbursedDate: { $gte: start, $lte: end }
-            })
-                .populate({
-                    path: 'leadUserId',
-                    model: 'CombinedUser',
-                    select: 'leadId'
-                })
-                .select("loanAmount actualDisbursedDate leadUserId")
-                .lean()
-        ]);
+        const totalDisbursedLeads = await PartnerPayoutModel.find(totalDisbursedFilter);
 
-        const leadIds = leads.map((lead) => lead._id).filter(Boolean);
-        const disbursedLeadsCount = disbursals.length;
-        const totalLeadsCount = leads.length;
+        const totalDisbursedThisMonth = totalDisbursedLeads.filter((lead:PartnerPayoutModel) =>
+        dayjs(lead.createdAt).isBetween(currentMonthStart, currentMonthEnd, null, '[]')
+    );
 
-        // Calculate disbursal rate
-        const disbursalRatePct = calculatePercentage(disbursedLeadsCount, totalLeadsCount);
 
-        // Normalize disbursals with leadId
-        const disbursalsNorm = disbursals.map(d => {
-            const leadId = d.leadId ||
-                (typeof d.leadUserId === "object" && "leadId" in d.leadUserId
-                    ? d.leadUserId.leadId
-                    : d.leadUserId?.toString?.());
-            return { ...d, leadId };
+        const totalDisbursedleadsPrevMonth = totalDisbursedLeads.filter((lead: PartnerPayoutModel) =>
+            dayjs(lead.createdAt).isBetween(prevMonthStart, prevMonthEnd, null, "[]")
+        );
+
+        // --------------------
+        const totalLeadsIn: any = {
+        status: { $in: ["New", "Pending"] },
+        _id: { $in: relatedLeadIds }
+        };
+        if (params.loanType) totalLeadsIn["loan.loan_id"] = params.loanType;
+        if (params.associateId) totalLeadsIn["assocaite_Lead_Id"] = params.associateId;
+
+        const totalLeads = await CombinedUser.find(totalLeadsIn);
+
+        const totalLeadsThisMonth = totalLeads.filter((lead) =>
+            dayjs(lead.updatedAt).isBetween(currentMonthStart, currentMonthEnd, null, '[]')
+        );
+
+        const totalLeadsPrevMonth = totalLeads.filter((lead) =>
+            dayjs(lead.updatedAt).isBetween(prevMonthStart, prevMonthEnd, null, "[]")
+        );
+
+        const timelines = await Timeline.find({
+            status: { $in: ["pending", "closed"] },
+            createdAt: { $gte: prevMonthStart, $lte: currentMonthEnd },
+        }).sort({ leadId: 1, createdAt: 1 });
+
+        const leadMap = new Map();
+
+        timelines.forEach((entry) => {
+            const { leadId, status, createdAt } = entry;
+            if (!leadMap.has(leadId)) {
+                leadMap.set(leadId, []);
+            }
+            leadMap.get(leadId).push({ status, createdAt });
         });
 
-        // Get login timelines for TAT calculation
-        const leadIdsStr = disbursalsNorm.map(d => d.leadId).filter(Boolean);
-        const timelines = await Timeline.find({
-            leadId: { $in: leadIdsStr },
-            status: "login"
-        }).sort({ createdAt: 1 }).select("leadId createdAt");
+        let prevMonthCount = 0;
+        let currentMonthCount = 0;
 
-        // Map earliest login per lead
-        const loginDateMap = new Map<string, Date>();
-        for (const t of timelines) {
-            if (!loginDateMap.has(t.leadId)) {
-                loginDateMap.set(t.leadId, t.createdAt);
+        for (const [leadId, statusLogs] of leadMap.entries()) {
+            let pendingCount = 0;
+            let closedCount = 0;
+            let firstPendingDate = null;
+            let firstClosedDate = null;
+
+            for (const { status, createdAt } of statusLogs) {
+                if (status === "pending") {
+                    pendingCount++;
+                    if (!firstPendingDate) firstPendingDate = createdAt;
+                }
+                if (status === "closed") {
+                    closedCount++;
+                    if (!firstClosedDate) firstClosedDate = createdAt;
+                }
+            }
+
+            // Only consider leads with exactly one pending and one closed,
+            // and where pending comes before closed
+            if (pendingCount === 1 && closedCount === 1 && firstPendingDate < firstClosedDate) {
+                if (firstClosedDate >= currentMonthStart && firstClosedDate <= currentMonthEnd) {
+                    currentMonthCount++;
+                } else if (firstClosedDate >= prevMonthStart && firstClosedDate <= prevMonthEnd) {
+                    prevMonthCount++;
+                }
             }
         }
+        const currentMonthDisbursed = totalDisbursedThisMonth.length / totalLeadsThisMonth.length;
+        const previusMonthDisbursed = totalDisbursedleadsPrevMonth.length / totalLeadsPrevMonth.length;
+        const deltaDisbursed = currentMonthDisbursed - previusMonthDisbursed;
 
-        // Calculate TAT for each disbursal
-        const tatList: number[] = disbursalsNorm
-            .map(d => {
-                const leadIdStr = typeof d.leadId === "string" ? d.leadId : String(d.leadId);
-                const loginDate = loginDateMap.get(leadIdStr);
-                if (!loginDate) return null;
+       // tat
+            const totaltatFilter: any = {
+                lead_Id: { $in: relatedLeadIds },
+            };
+            if (params.loanType) totaltatFilter["lender.loan_id"] = params.loanType;
+            if(params.associateId) totaltatFilter["partner_Id"] = params.associateId
 
-                return dayjs(d.actualDisbursedDate)
-                    .startOf('day')
-                    .diff(dayjs(loginDate).startOf('day'), 'day');
-            })
-            .filter((tat): tat is number => tat !== null);
+            const results: Record<string, number> = {}; // { currentMonth: avg, previousMonth: avg }
 
-        // Calculate average TAT
-        const avgDisbursalTATdays = tatList.length > 0
-            ? parseFloat((tatList.reduce((a, b) => a + b, 0) / tatList.length).toFixed(1))
-            : 0;
+            async function calculateAvg(startDate: Date, endDate: Date) {
+                const payouts = await PartnerPayoutModel.find({
+                    leadId: { $in: relatedLeadIds },
+                    createdAt: {
+                        $gte: startDate,
+                        $lte: endDate,
+                    },
+                    ...totaltatFilter
+                }).lean();
 
-        // Calculate average loan amount
-        const totalDisbursedAmount = disbursals.reduce((sum, d) => sum + (d.loanAmount || 0), 0);
-        const avgLoanAmount = disbursals.length > 0
-            ? Math.round(totalDisbursedAmount / disbursals.length)
-            : 0;
+                const timeDiffs: number[] = [];
 
-        return {
-            disbursalRatePct,
-            avgDisbursalTATdays,
-            avgLoanAmount,
-            targetAchievedPct: null
-        };
+                for (const payout of payouts) {
+                    const loginTimeline = await Timeline.findOne({
+                        leadId: payout.leadId,
+                        status: "login",
+                    }).sort({ createdAt: 1 }).lean();
+
+                    if (loginTimeline?.createdAt) {
+                        const diffInDays = dayjs(payout.createdAt).diff(dayjs(loginTimeline.createdAt), "day");
+                        timeDiffs.push(diffInDays + 1); // +1 as per formula
+                    }
+                }
+
+                const total = timeDiffs.reduce((sum, days) => sum + days, 0);
+                return timeDiffs.length > 0 ? total / timeDiffs.length : 0;
+            }
+
+            const currentMonthAvg = await calculateAvg(currentMonthStart, currentMonthEnd);
+            const prevMonthAvg = await calculateAvg(prevMonthStart, prevMonthEnd);
+
+            // avgLoanAmount
+            const totalDisbursedsFilter: any = {
+                lead_Id: { $in: relatedLeadIds },
+            };
+
+            if (params.loanType) totalDisbursedsFilter["lender.loan_id"] = params.loanType;
+            if (params.associateId) totalDisbursedsFilter["partner_Id"] = params.associateId;
+
+            const totalDisbursedsLeads = await PartnerPayoutModel.find(totalDisbursedsFilter);
+                        // --- CURRENT MONTH ---
+            const totalDisbursedsThisMonth = totalDisbursedsLeads.filter((lead: PartnerPayoutModel) =>
+                dayjs(lead.createdAt).isBetween(currentMonthStart, currentMonthEnd, null, '[]')
+            );
+            function sumDisbursedAmount(leads: { disbursedAmount?: number }[]): number {
+                    return leads.reduce((sum, lead) => sum + (lead.disbursedAmount ?? 0), 0);
+                }
+            const totalLeads_ThisMonth = totalDisbursedsThisMonth.length;
+
+            const totalDisbursedAmountThisMonth = sumDisbursedAmount(totalDisbursedsThisMonth);
+
+            const avgDisbursedAmountThisMonth =
+                totalLeads_ThisMonth > 0 ? totalDisbursedAmountThisMonth / totalLeads_ThisMonth : 0;
+
+            // --- PREVIOUS MONTH ---
+            const totalDisbursedsPrevMonth = totalDisbursedsLeads.filter((lead: PartnerPayoutModel) =>
+                dayjs(lead.createdAt).isBetween(prevMonthStart, prevMonthEnd, null, '[]')
+            );
+
+            const totalLeadsPrev_Month = totalDisbursedsPrevMonth.length;
+
+            const totalDisbursedAmountPrevMonth = totalDisbursedsThisMonth(totalDisbursedsPrevMonth);
+
+            const avgDisbursedAmountPrevMonth =
+        totalLeadsPrev_Month > 0 ? totalDisbursedAmountPrevMonth / totalLeadsPrev_Month : 0;  
+
+            //-------------
+             const baseFilter: any = {
+                lead_Id: { $in: relatedLeadIds },
+                };
+
+                if (params.loanType) baseFilter["lender.loan_id"] = params.loanType;
+                if (params.associateId) baseFilter["partner_Id"] = params.associateId;
+
+                const currentMonthFilter = {
+                ...baseFilter,
+                createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
+                };
+
+                const prevMonthFilter = {
+                ...baseFilter,
+                createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd },
+                };
+                const currentMonthLeads = await PartnerPayoutModel.find(currentMonthFilter);
+                const prevMonthLeads = await PartnerPayoutModel.find(prevMonthFilter);
+
+                const sumDisbursedCurrent = sumDisbursedAmount(currentMonthLeads);
+                const sumDisbursedPrev = sumDisbursedAmount(prevMonthLeads);   
+
+                const currentUser = await CombinedUser.findById(userContext.userId).lean();
+
+                let disbursalTarget: PartnerDisbursalTarget;
+
+                const plan = currentUser?.commissionPlan?.toLowerCase();
+
+                if (plan === "diamond") {
+                disbursalTarget = PartnerDisbursalTarget.diamond;
+                } else if (plan === "gold") {
+                disbursalTarget = PartnerDisbursalTarget.gold;
+                } else if (plan === "platinum") {
+                disbursalTarget = PartnerDisbursalTarget.platinum;
+                } else if (!plan || plan === "n/a") {
+                disbursalTarget = PartnerDisbursalTarget.DEFAULT;
+                } else {
+                disbursalTarget = PartnerDisbursalTarget.leadSharing;
+                }
+                const thisavgMonth = sumDisbursedCurrent/ disbursalTarget;
+                const prevavgMonth = sumDisbursedPrev/ disbursalTarget
+
+        return{
+            disbursalRate:{
+                current_month_amount: currentMonthDisbursed,
+                previous_month_amount: previusMonthDisbursed,
+                delta_percentage :deltaDisbursed
+            },
+            avgTATDays:{
+                current_month_amount: currentMonthAvg,
+                previous_month_amount: prevMonthAvg,
+                delta_percentage :currentMonthAvg-prevMonthAvg
+            },
+            avgLoanAmount:{
+                current_month_amount: avgDisbursedAmountThisMonth,
+                previous_month_amount: avgDisbursedAmountPrevMonth,
+                delta_percentage :avgDisbursedAmountThisMonth-avgDisbursedAmountPrevMonth
+            },
+            targetAchieved:{
+                current_month_amount: thisavgMonth,
+                previous_month_amount: prevavgMonth,
+                delta_percentage :thisavgMonth-prevavgMonth
+            }
+        }
     },
 
     updateAgreementAcceptedStatus: async(userId: string, userIP: string) =>{
