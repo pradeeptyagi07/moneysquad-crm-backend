@@ -26,12 +26,15 @@ export const dashboardController = {
     async getSnapshot(req: Request, res: Response) {
         try {
             const userId = (req as any).user.userId;
-            const { period, loanType, associateId } = req.query;
+            const { period, loanType, associateId,managerId, partnerId } = req.query;
             const snapshot = await dashboardService.getSnapshot({
                 period: period as string,
                 loanType: loanType as string,
                 associateId: associateId as string,
-                userId: userId as string
+                userId: userId as string,
+                managerId : managerId as string,
+                partnerId : partnerId as string
+
             });
             res.status(200).json({
                 success: true,
