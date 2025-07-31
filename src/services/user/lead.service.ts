@@ -11,6 +11,7 @@ import {
 } from "../../utils/helper";
 import dayjs from "dayjs";
 import { LoanType } from "../../model/loan.model";
+import { validateTransition } from "../../utils/leadStatusHelper";
 
 export const leadService = {
   async createLead(userId: string, leadData: any) {
@@ -487,37 +488,84 @@ export const leadService = {
       throw new Error("creatorUser not found");
     }
 
-    let messageData;
-
-    if (creatorUser.role === "admin") {
-      messageData = `Lead Status updated by ${creatorUser.role} ${creatorUser.firstName} ${creatorUser.lastName}`;
-    } else if (creatorUser.role === "manager") {
-      messageData = `Lead Status updated by ${creatorUser.role} ${creatorUser.firstName} ${creatorUser.lastName} {(${creatorUser.managerId})}`;
+    let messageData = "";
+    if (creatorUser.role === "admin" || creatorUser.role === "manager") {
+      messageData = `Lead Status updated by ${creatorUser.role} ${
+        creatorUser.firstName || ""
+      } ${creatorUser.lastName || ""}`.trim();
+      if (creatorUser.role === "manager" && creatorUser.managerId) {
+        messageData += ` (${creatorUser.managerId})`;
+      }
     }
-    const lead = await CombinedUser.findOne({
+
+    // 1. Fetch latest lead
+    const existingLead = await CombinedUser.findOne({
       _id: leadId,
       role: "lead",
     }).populate(["partner_Lead_Id", "assocaite_Lead_Id"]);
-    if (!lead) {
+    if (!existingLead) {
       throw new Error("Lead not found");
     }
 
-    if (data.action === "approved") {
-      lead.loan.amount = Number(data.approvedAmount);
+    // 2. Validate transition
+    const requestedStatus = data.action;
+    validateTransition(existingLead.status || "", requestedStatus);
+
+    // 3. Prepare atomic update payload
+    const updatePayload: any = {
+      status: requestedStatus,
+    };
+    if (
+      requestedStatus.toLowerCase() === "approved" &&
+      data.approvedAmount !== undefined
+    ) {
+      updatePayload["loan.amount"] = Number(data.approvedAmount);
     }
 
-    // Upload image if provided
+    // 4. Atomic conditional update (guard against concurrent modification)
+    const lead = await CombinedUser.findOneAndUpdate(
+      {
+        _id: leadId,
+        role: "lead",
+        status: existingLead.status, // ensure no one else changed it
+      },
+      {
+        $set: updatePayload,
+      },
+      {
+        new: true,
+        runValidators: true,
+      }
+    ).populate(["partner_Lead_Id", "assocaite_Lead_Id"]);
+
+    if (!lead) {
+      const err: any = new Error(
+        "Concurrent modification detected. Please refresh to get the latest status."
+      );
+      err.code = "CONCURRENT_MODIFICATION";
+      throw err;
+    }
+
+    // 5. Upload image if provided
     let s3url;
     if (files.rejectImage?.[0]) {
-      s3url = await uploadFileToS3(files.rejectImage?.[0], "rejectImage");
+      s3url = await uploadFileToS3(files.rejectImage[0], "rejectImage");
       data.rejectImage = s3url;
     }
 
-    lead.status = data.action;
+    // 6. Handle disbursed (prevent duplicate)
+    if (requestedStatus.toLowerCase() === "disbursed") {
+      const existingPayout = await PartnerPayoutModel.findOne({
+        lead_Id: lead._id,
+      });
+      if (existingPayout) {
+        const err: any = new Error(
+          "Disbursed flow already executed for this lead. Duplicate creation prevented."
+        );
+        err.code = "ALREADY_DISBURSED";
+        throw err;
+      }
 
-    await lead.save();
-
-    if (data.action === "disbursed") {
       const partnerUser = lead.partner_Lead_Id as any;
       const associateUser = lead.assocaite_Lead_Id as any;
 
@@ -558,7 +606,8 @@ export const leadService = {
         warning: false,
         remark: "",
       });
-      const loanTypeName = payout.lender.loanType; // e.g. "BL — Term Loan"
+
+      const loanTypeName = payout.lender.loanType;
       const loanTypeDoc = await LoanType.findOne({ name: loanTypeName }).select(
         "_id"
       );
@@ -570,50 +619,27 @@ export const leadService = {
       await payout.save();
     }
 
-    console.log("sss", data.action);
-
-    if (data.action === "closed") {
-      console.log(
-        "🔒 Lead status is being updated to 'closed'. Checking payout data..."
-      );
-
+    // 7. Handle closed logic
+    if (requestedStatus.toLowerCase() === "closed") {
       const payoutData = await PartnerPayoutModel.findOne({
         lead_Id: lead._id,
       });
 
       if (payoutData) {
-        console.log(`✅ Payout found for Lead ID: ${lead._id}`);
-        console.log(`ℹ️ Current payout status: ${payoutData.payoutStatus}`);
-
         if (payoutData.payoutStatus === "pending") {
-          const deleteResult = await PartnerPayoutModel.deleteOne({
-            _id: payoutData._id,
-          });
-          console.log(
-            `🗑️ Payout with status 'pending' deleted. Result:`,
-            deleteResult
-          );
+          await PartnerPayoutModel.deleteOne({ _id: payoutData._id });
         } else if (payoutData.payoutStatus === "paid") {
           payoutData.warning = true;
-          const updated = await payoutData.save();
-          console.log(
-            `⚠️ Payout with status 'paid' updated with warning flag. Updated Data:`,
-            updated
-          );
-        } else {
-          console.log(
-            `❗ Unexpected payout status '${payoutData.payoutStatus}' for Lead ID: ${lead._id}`
-          );
+          await payoutData.save();
         }
-      } else {
-        console.log(`ℹ️ No payout found for leadId: ${lead._id}`);
       }
     }
 
+    // 8. Timeline entry
     const entry = new Timeline({
       leadId: lead.leadId,
       applicantName: lead.applicantName,
-      status: data.action,
+      status: requestedStatus,
       message: messageData,
       closeReason: data.closeReason || undefined,
       rejectImage: s3url || undefined,
