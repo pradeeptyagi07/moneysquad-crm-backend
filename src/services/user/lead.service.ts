@@ -82,11 +82,19 @@ export const leadService = {
     // Save the lead user document
     await newLead.save();
 
+    let clientName: string;
+    if (creatorUser.role === "partner") {
+      clientName = creatorUser.basicInfo.fullName;
+    } else {
+      const firstName = creatorUser.firstName || "";
+      const lastName = creatorUser.lastName || "";
+      clientName = `${firstName} ${lastName}`.trim();
+    }
     const entry = new Timeline({
       leadId: newLead.leadId,
       applicantName: leadData.applicantName,
       status: finalStatus,
-      message: `Lead created by ${creatorUser.role} ${creatorUser.basicInfo?.fullName}`,
+      message: `Lead created by ${creatorUser.role} ${clientName}`,
     });
 
     await entry.save();
@@ -490,9 +498,8 @@ export const leadService = {
 
     let messageData = "";
     if (creatorUser.role === "admin" || creatorUser.role === "manager") {
-      messageData = `Lead Status updated by ${creatorUser.role} ${
-        creatorUser.firstName || ""
-      } ${creatorUser.lastName || ""}`.trim();
+      messageData = `Lead Status updated by ${creatorUser.role} ${creatorUser.firstName || ""
+        } ${creatorUser.lastName || ""}`.trim();
       if (creatorUser.role === "manager" && creatorUser.managerId) {
         messageData += ` (${creatorUser.managerId})`;
       }
@@ -584,15 +591,14 @@ export const leadService = {
         },
         associate: associateUser
           ? {
-              name: `${associateUser.firstName || ""} ${
-                associateUser.lastName || ""
+            name: `${associateUser.firstName || ""} ${associateUser.lastName || ""
               }`.trim(),
-              associateDisplayId: associateUser.associateDisplayId || "",
-            }
+            associateDisplayId: associateUser.associateDisplayId || "",
+          }
           : {
-              name: "",
-              associateDisplayId: "",
-            },
+            name: "",
+            associateDisplayId: "",
+          },
         applicant: {
           name: lead.applicantName,
           business: lead.businessName || "",

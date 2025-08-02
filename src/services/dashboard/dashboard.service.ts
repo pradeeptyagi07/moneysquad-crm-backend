@@ -22,8 +22,8 @@ interface BaseParams {
     loanType?: string;
     associateId?: string;
     userId: string;
-    managerId?:string;
-    partnerId?:string;
+    managerId?: string;
+    partnerId?: string;
 }
 
 interface FunnelData extends BaseParams { }
@@ -131,21 +131,8 @@ const buildBaseQuery = async (params: BaseParams, userContext: UserContext): Pro
     if (associateId) {
         if (params.associateId) baseQuery["assocaite_Lead_Id"] = params.associateId;
     }
-
-    // // Add role-based filters
-    // switch (user.role) {
-    //     case "manager":
-    //         baseQuery.assignedTo = user._id;
-    //         break;
-    //     case "partner":
-    //         baseQuery.partner_Lead_Id = user._id;
-    //         break;
-    //     case "associate":
-    //         baseQuery.assocaite_Lead_Id = user._id;
-    //         break;
-    // }
-
-    // Add date range filter
+    if (params.partnerId) baseQuery["partner_Lead_Id"] = params.partnerId;
+    if (params.managerId) baseQuery["assignedTo"] = params.managerId;
     const dateRange = parseDateRange(period);
     if (dateRange) {
         baseQuery.createdAt = { $gte: dateRange.start, $lte: dateRange.end };
@@ -179,8 +166,8 @@ const getRelatedLeadIds = async (userContext: UserContext): Promise<mongoose.Typ
             const leads = await CombinedUser.find({ assocaite_Lead_Id: user._id, role: "lead" }).select("_id");
             return leads.map(l => l._id as mongoose.Types.ObjectId);
         }
-        case "admin":{
-            const leads = await CombinedUser.find({role: "lead" }).select("_id");
+        case "admin": {
+            const leads = await CombinedUser.find({ role: "lead" }).select("_id");
             return leads.map(l => l._id as mongoose.Types.ObjectId);
         }
         default:
@@ -190,7 +177,7 @@ const getRelatedLeadIds = async (userContext: UserContext): Promise<mongoose.Typ
 const getActiveLead = async (
     params: SnapshotData,
     currentMonthStr: string,
-    filter: any 
+    filter: any
 ): Promise<{ uniqueCount: number; totalCount: number }> => {
     const activeLeads = await CombinedUser.find({
         status: { $in: ["new lead", "pending", "login", "approved"] },
@@ -416,7 +403,7 @@ export const dashboardService = {
         if (params.associateId) currentApprovalbaseFilter["assocaite_Lead_Id"] = params.associateId;
         if (params.partnerId) currentApprovalbaseFilter["partner_Lead_Id"] = params.partnerId;
         if (params.managerId) currentApprovalbaseFilter["assignedTo"] = params.managerId;
-        
+
         // Get filtered leads
         const filteredLeads = await CombinedUser.find(currentApprovalbaseFilter);
 
@@ -458,9 +445,9 @@ export const dashboardService = {
             _id: { $in: relatedLeadIds }
         };
 
-        if (params.associateId ) disbursedFilter.assocaite_Lead_Id = params.associateId;
-        if (params.managerId ) disbursedFilter.assignedTo = params.managerId;
-        if (params.partnerId ) disbursedFilter.partner_Lead_Id = params.partnerId;
+        if (params.associateId) disbursedFilter.assocaite_Lead_Id = params.associateId;
+        if (params.managerId) disbursedFilter.assignedTo = params.managerId;
+        if (params.partnerId) disbursedFilter.partner_Lead_Id = params.partnerId;
 
         const combinedUserForDisbursed = await CombinedUser.find(disbursedFilter);
 
@@ -495,8 +482,8 @@ export const dashboardService = {
             status: "rejected"
         };
         if (params.loanType) totalRejectionLeads["loan.loan_id"] = params.loanType;
-        if (params.managerId ) totalRejectionLeads.assignedTo = params.managerId;
-        if (params.partnerId ) totalRejectionLeads.partner_Lead_Id = params.partnerId;
+        if (params.managerId) totalRejectionLeads.assignedTo = params.managerId;
+        if (params.partnerId) totalRejectionLeads.partner_Lead_Id = params.partnerId;
         const totalRejectedLeads = await CombinedUser.find(totalRejectionLeads);
 
         const totalRejectedThisMonth = totalRejectedLeads.filter((lead) =>
@@ -590,8 +577,8 @@ export const dashboardService = {
 
         if (params.loanType) leadAddedFilter["loan.loan_id"] = params.loanType;
         if (params.associateId) leadAddedFilter["assocaite_Lead_Id"] = params.associateId;
-        if (params.managerId ) leadAddedFilter.assignedTo = params.managerId;
-        if (params.partnerId ) leadAddedFilter.partner_Lead_Id = params.partnerId;
+        if (params.managerId) leadAddedFilter.assignedTo = params.managerId;
+        if (params.partnerId) leadAddedFilter.partner_Lead_Id = params.partnerId;
         const activeLeadThisMonth = await CombinedUser.find({
             createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
             ...leadAddedFilter
@@ -608,8 +595,8 @@ export const dashboardService = {
             _id: { $in: relatedLeadIds }
         };
         if (params.associateId) commisionearnedFilter["assocaite_Lead_Id"] = params.associateId
-        if (params.managerId ) commisionearnedFilter.assignedTo = params.managerId;
-        if (params.partnerId ) commisionearnedFilter.partner_Lead_Id = params.partnerId;
+        if (params.managerId) commisionearnedFilter.assignedTo = params.managerId;
+        if (params.partnerId) commisionearnedFilter.partner_Lead_Id = params.partnerId;
         const combinedUserForCommission = await CombinedUser.find({
             ...commisionearnedFilter
         });
@@ -693,7 +680,7 @@ export const dashboardService = {
     async getRejectionReasonCount(params: RejectionReasonCount) {
         const userContext = await getUserContext(params.userId);
         const { baseQuery, dateRange } = await buildBaseQuery(params, userContext);
-
+        
         const leads = await CombinedUser.find(baseQuery).select("leadId status");
         const leadIds = leads.map((lead) => lead.leadId).filter(Boolean);
 
@@ -756,8 +743,8 @@ export const dashboardService = {
                 _id: { $in: relatedLeadIds },
                 role: "lead",
             };
-            if (params.managerId ) leadAddedFilter.assignedTo = params.managerId;
-            if (params.partnerId ) leadAddedFilter.partner_Lead_Id = params.partnerId;
+            if (params.managerId) leadAddedFilter.assignedTo = params.managerId;
+            if (params.partnerId) leadAddedFilter.partner_Lead_Id = params.partnerId;
             if (params.associateId) leadAddedFilter["assocaite_Lead_Id"] = params.associateId;
             const activeLeads = await CombinedUser.find({
                 createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
@@ -797,13 +784,21 @@ export const dashboardService = {
         const currentMonthEnd = dayjs(currentMonthStart).endOf("month").toDate();
 
         const totalDisbursedFilter: any = {
-            lead_Id: { $in: relatedLeadIds },
+            _id: { $in: relatedLeadIds },
         };
 
-        if (params.loanType) totalDisbursedFilter["lender.loan_id"] = params.loanType;
-        if (params.associateId) totalDisbursedFilter["partner_Id"] = params.associateId
+        if (params.associateId) totalDisbursedFilter.assocaite_Lead_Id = params.associateId;
+        if (params.managerId) totalDisbursedFilter.assignedTo = params.managerId;
+        if (params.partnerId) totalDisbursedFilter.partner_Lead_Id = params.partnerId;
 
-        const totalDisbursedLeads = await PartnerPayoutModel.find(totalDisbursedFilter);
+        const combinedUserForDisbursed = await CombinedUser.find(totalDisbursedFilter);
+
+        const combinedUserDisbursedIds = combinedUserForDisbursed.map(user => user._id);
+
+        const totalDisbursedLeads = await PartnerPayoutModel.find({
+            lead_Id: { $in: combinedUserDisbursedIds },
+            ...(params.loanType && { 'lender.loan_id': params.loanType })
+        });
 
         const totalDisbursedThisMonth = totalDisbursedLeads.filter((lead: IPartnerPayout) =>
             dayjs(lead.createdAt).isBetween(currentMonthStart, currentMonthEnd, null, '[]')
@@ -816,12 +811,13 @@ export const dashboardService = {
 
         // --------------------
         const totalLeadsIn: any = {
-            status: { $in: ["New", "Pending"] },
+            status: { $in: ["new lead", "pending"] },
             _id: { $in: relatedLeadIds }
         };
         if (params.loanType) totalLeadsIn["loan.loan_id"] = params.loanType;
         if (params.associateId) totalLeadsIn["assocaite_Lead_Id"] = params.associateId;
-
+        if (params.managerId) totalLeadsIn.assignedTo = params.managerId;
+        if (params.partnerId) totalLeadsIn.partner_Lead_Id = params.partnerId;
         const totalLeads = await CombinedUser.find(totalLeadsIn);
 
         const totalLeadsThisMonth = totalLeads.filter((lead) =>
@@ -877,52 +873,38 @@ export const dashboardService = {
                 }
             }
         }
-        const currentMonthDisbursed = totalDisbursedThisMonth.length / totalLeadsThisMonth.length;
-        const previusMonthDisbursed = totalDisbursedleadsPrevMonth.length / totalLeadsPrevMonth.length;
-        const deltaDisbursed = currentMonthDisbursed - previusMonthDisbursed;
+        const currentMonthDisbursedRaw = (totalDisbursedThisMonth.length / totalLeadsThisMonth.length) * 100;
+        const currentMonthDisbursed = !isFinite(currentMonthDisbursedRaw) ? 0 : currentMonthDisbursedRaw;
+
+        const previusMonthDisbursed = (totalDisbursedleadsPrevMonth.length / totalLeadsPrevMonth.length) * 100;
+        const deltaDisbursed = (currentMonthDisbursed - previusMonthDisbursed)  ;
 
         // tat
-        const totaltatFilter: any = {
-            lead_Id: { $in: relatedLeadIds },
-        };
-        if (params.loanType) totaltatFilter["lender.loan_id"] = params.loanType;
-        if (params.associateId) totaltatFilter["partner_Id"] = params.associateId
-
-        const results: Record<string, number> = {}; // { currentMonth: avg, previousMonth: avg }
-
-        async function calculateAvg(startDate: Date, endDate: Date) {
-            const payouts = await PartnerPayoutModel.find({
-                leadId: { $in: relatedLeadIds },
-                createdAt: {
-                    $gte: startDate,
-                    $lte: endDate,
-                },
-                ...totaltatFilter
-            }).lean();
-
-            const timeDiffs: number[] = [];
+        const calculateAvgPayoutDelay = async (payouts: IPartnerPayout[]): Promise<number> => {
+            let totalDays = 0;
+            let count = 0;
 
             for (const payout of payouts) {
-                const loginTimeline = await Timeline.findOne({
-                    leadId: payout.leadId,
-                    status: "login",
-                }).sort({ createdAt: 1 }).lean();
+                const timeline = await Timeline.findOne({ leadId: payout.leadId, status: "login" }).sort({ createdAt: 1 });
 
-                if (loginTimeline?.createdAt) {
-                    const diffInDays = dayjs(payout.createdAt).diff(dayjs(loginTimeline.createdAt), "day");
-                    timeDiffs.push(diffInDays + 1); // +1 as per formula
+                if (timeline && payout.createdAt) {
+                    const payoutDate = dayjs(payout.createdAt);
+                    const timelineDate = dayjs(timeline.createdAt);
+                    const diffDays = payoutDate.diff(timelineDate, 'day');
+
+                    totalDays += diffDays;
+                    count++;
                 }
             }
 
-            const total = timeDiffs.reduce((sum, days) => sum + days, 0);
-            return timeDiffs.length > 0 ? total / timeDiffs.length : 0;
-        }
+            return count > 0 ? (totalDays / count) + 1 : 0;
+        };
 
-        const currentMonthAvg = await calculateAvg(currentMonthStart, currentMonthEnd);
-        const prevMonthAvg = await calculateAvg(prevMonthStart, prevMonthEnd);
-
-        // avgLoanAmount
-        const totalDisbursedsFilter: any = {
+        const avgdisbursedthisMonth = await calculateAvgPayoutDelay(totalDisbursedThisMonth);
+        const avgdisbursedPrevMonth = await calculateAvgPayoutDelay(totalDisbursedleadsPrevMonth);
+        const deltapercentage = calculateDeltaPercentage(avgdisbursedthisMonth, avgdisbursedPrevMonth);
+        // -------------
+         const totalDisbursedsFilter: any = {
             lead_Id: { $in: relatedLeadIds },
         };
 
@@ -934,9 +916,6 @@ export const dashboardService = {
         const totalDisbursedsThisMonth = totalDisbursedsLeads.filter((lead: IPartnerPayout) =>
             dayjs(lead.createdAt).isBetween(currentMonthStart, currentMonthEnd, null, '[]')
         );
-        function sumDisbursedAmount(leads: { disbursedAmount?: number }[]): number {
-            return leads.reduce((sum, lead) => sum + (lead.disbursedAmount ?? 0), 0);
-        }
         const totalLeads_ThisMonth = totalDisbursedsThisMonth.length;
 
         const totalDisbursedAmountThisMonth = sumDisbursedAmount(totalDisbursedsThisMonth);
@@ -960,27 +939,37 @@ export const dashboardService = {
 
         //-------------
         const baseFilter: any = {
-            lead_Id: { $in: relatedLeadIds },
+            _id: { $in: relatedLeadIds },
         };
+        if (params.associateId) baseFilter.assocaite_Lead_Id = params.associateId;
+        if (params.managerId) baseFilter.assignedTo = params.managerId;
+        if (params.partnerId) baseFilter.partner_Lead_Id = params.partnerId;
 
-        if (params.loanType) baseFilter["lender.loan_id"] = params.loanType;
-        if (params.associateId) baseFilter["partner_Id"] = params.associateId;
+        const combinedUser = await CombinedUser.find(baseFilter);
+
+        const combinedUserIds = combinedUser.map(user => user._id);
 
         const currentMonthFilter = {
-            ...baseFilter,
+            lead_Id: { $in: combinedUserIds },
+            ...(params.loanType && { 'lender.loan_id': params.loanType }),
             createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
         };
 
         const prevMonthFilter = {
-            ...baseFilter,
+            lead_Id: { $in: combinedUserIds },
+            ...(params.loanType && { 'lender.loan_id': params.loanType }),
             createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd },
         };
         const currentMonthLeads = await PartnerPayoutModel.find(currentMonthFilter);
         const prevMonthLeads = await PartnerPayoutModel.find(prevMonthFilter);
 
+        function sumDisbursedAmount(leads: { disbursedAmount?: number }[]): number {
+            return leads.reduce((sum, lead) => sum + (lead.disbursedAmount ?? 0), 0);
+        }
         const sumDisbursedCurrent = sumDisbursedAmount(currentMonthLeads);
         const sumDisbursedPrev = sumDisbursedAmount(prevMonthLeads);
 
+        
         const currentUser = await CombinedUser.findById(userContext.userId).lean();
 
         let disbursalTarget: PartnerDisbursalTarget;
@@ -1010,9 +999,9 @@ export const dashboardService = {
                 delta_percentage: deltaDisbursed
             },
             avgTATDays: {
-                current_month_amount: currentMonthAvg,
-                previous_month_amount: prevMonthAvg,
-                delta_percentage: currentMonthAvg - prevMonthAvg
+                 current_month_amount: avgdisbursedthisMonth,
+                previous_month_amount: avgdisbursedthisMonth,
+                delta_percentage: deltapercentage,
             },
             avgLoanAmount: {
                 current_month_amount: avgDisbursedAmountThisMonth,
@@ -1020,8 +1009,8 @@ export const dashboardService = {
                 delta_percentage: deltaPercentage,
             },
             targetAchieved: {
-                current_month_amount: thisavgMonth,
-                previous_month_amount: prevavgMonth,
+                current_month_amount: thisavgMonth *100,
+                previous_month_amount: prevavgMonth*100,
                 delta_percentage: targetPercentage,
             }
         }
