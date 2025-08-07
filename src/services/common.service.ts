@@ -5,7 +5,7 @@ import path from 'path';
 dotenv.config();
 
 
-interface ContactData {
+export interface ContactData {
   firstName: string;
   lastName: string;
   message: string;

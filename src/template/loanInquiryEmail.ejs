@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Loan Inquiry</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f8f9fa;
+      color: #333;
+    }
+    h2 {
+      color: #2c3e50;
+    }
+    .container {
+      background-color: #ffffff;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      max-width: 600px;
+      margin: auto;
+    }
+    .field {
+      margin-bottom: 12px;
+    }
+    .label {
+      font-weight: bold;
+      display: inline-block;
+      min-width: 180px;
+      color: #555;
+    }
+    .value {
+      display: inline-block;
+      color: #222;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>📨 New Loan Inquiry Received</h2>
+
+    <div class="field"><span class="label">Full Name:</span> <span class="value"><%= fullName %></span></div>
+    <div class="field"><span class="label">Email Address:</span> <span class="value"><%= emailAddress %></span></div>
+    <div class="field"><span class="label">Mobile Number:</span> <span class="value"><%= mobileNumber %></span></div>
+    <div class="field"><span class="label">City:</span> <span class="value"><%= city %></span></div>
+
+    <div class="field"><span class="label">Business Name:</span> <span class="value"><%= businessName %></span></div>
+    <div class="field"><span class="label">Annual Turnover:</span> <span class="value"><%= annualTurnover %></span></div>
+
+    <div class="field"><span class="label">Loan Type:</span> <span class="value"><%= loanType %></span></div>
+    <div class="field"><span class="label">Sub Loan Type:</span> <span class="value"><%= subLoanType %></span></div>
+    <div class="field"><span class="label">Loan Amount Required:</span> <span class="value"><%= loanAmountRequired %></span></div>
+  </div>
+</body>
+</html>

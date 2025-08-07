@@ -26,10 +26,11 @@ import supportRoutes from "./routes/support.routes";
 import productInfoRoutes from "./routes/productInfo.routes";
 import bankRoutes from "./routes/bank.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
+import altMoneyController from "./routes/altMoney.routes"
 
 import { expireLeadsBasedOnTimeline } from "./script/task";
 import { errorHandler } from "./middleware/error.middleware";
-
+import { protectedRouter } from "../src/routes/protected.routes";
 dotenv.config();
 
 // Initialize Sentry before any other middleware or routes
@@ -89,20 +90,20 @@ app.use(
 app.use("/api/auth", authRoutes);
 app.use("/api/common", commonRoute);
 app.use("/api", healthRoute);
-
-app.use("/api/admin/", adminRoutes);
-app.use("/api/manager/", managerRoutes);
-app.use("/api/offers/", offerRoutes);
-app.use("/api/partner/", partnerRoutes);
-app.use("/api/lead", leadRoutes);
-app.use("/api/associate", associateRoutes);
-app.use("/api/matrix", matrixRoutes);
-app.use("/api/commission", commissionRoutes);
-app.use("/api/request", requestRoutes);
-app.use("/api/support", supportRoutes);
-app.use("/api/product-info", productInfoRoutes);
-app.use("/api/bank", bankRoutes);
-app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/alt-money/", altMoneyController);
+app.use("/api/admin/",protectedRouter, adminRoutes);
+app.use("/api/manager/",protectedRouter, managerRoutes);
+app.use("/api/offers/",protectedRouter, offerRoutes);
+app.use("/api/partner/",protectedRouter, partnerRoutes);
+app.use("/api/lead",protectedRouter, leadRoutes);
+app.use("/api/associate",protectedRouter, associateRoutes);
+app.use("/api/matrix",protectedRouter, matrixRoutes);
+app.use("/api/commission",protectedRouter, commissionRoutes);
+app.use("/api/request",protectedRouter, requestRoutes);
+app.use("/api/support",protectedRouter, supportRoutes);
+app.use("/api/product-info",protectedRouter, productInfoRoutes);
+app.use("/api/bank",protectedRouter, bankRoutes);
+app.use("/api/dashboard",protectedRouter, dashboardRoutes);
 
 // — Cron jobs —
 cron.schedule("0 0 * * *", async () => {

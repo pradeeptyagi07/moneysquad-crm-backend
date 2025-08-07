@@ -8,3 +8,5 @@ export const errorResponse = (res: any, error: any) => {
 
   return res.status(status).json({ success: false, message, status });
 };
+
+

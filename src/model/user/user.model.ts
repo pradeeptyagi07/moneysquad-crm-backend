@@ -75,8 +75,9 @@ const combinedUserSchema = new Schema<ICombinedUser>(
                 }
             ],
             default: undefined, // explicitly avoid defaulting to []
-        }
-        ,
+        },
+        lastSeen: { type: Date },
+        
         partner_Lead_Id: { type: ObjectId, ref: "CombinedUser" },
         assocaite_Lead_Id: { type: ObjectId, ref: "CombinedUser" },
         applicantProfile: { type: String },

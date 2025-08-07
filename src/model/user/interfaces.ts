@@ -46,6 +46,7 @@ export interface ICombinedUser extends Document {
   commissionPlan?: UserCommissionPlab;
   agreementAccepted?: boolean;
   agreementAcceptedLogs?: IAgreementAcceptedLog[];
+  lastSeen? : string;
 
   partner_Lead_Id?: string;
   assignedTo?: string;
