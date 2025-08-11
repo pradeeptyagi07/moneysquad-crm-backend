@@ -9,7 +9,6 @@ export interface ContactFormData {
   workEmail: string;
   phoneNumber: string;
   companyName: string;
-  annualTurnover: string;
   industry: string;
   inquiryType: string;
   fundingRequirement: string;
@@ -37,39 +36,36 @@ export interface AIEngineInterest {
 
 
 export const sendEnquiryEmail = async (data: ContactFormData) => {
-  const subject = `New Business Inquiry from ${data.fullName}`;
 
   const templatePath = path.join(__dirname, '../../template/altMoneyEnquiry.ejs');
   const html = await ejs.renderFile(templatePath, data);
 
   await sendEmail({
-    to: process.env.MAIL_USER!, 
-    subject: "",
+    to: process.env.MAIL_USER!,
+    subject:`Altmoney 📩 New Business Enquiry - ${data.fullName}`,
     html,
   });
 };
 
 export const sendLoanInquiryEmail = async (data: LoanInquiryFormData) => {
-  const subject = `New Loan Inquiry from ${data.fullName}`;
 
   const templatePath = path.join(__dirname, '../../template/loanInquiryEmail.ejs');
   const html = await ejs.renderFile(templatePath, data);
 
   await sendEmail({
-    to: process.env.MAIL_USER!,
-    subject,
+    to: "process.env.MAIL_USER!",
+    subject:`Altmoney Loan Inquiry - ${data.loanType} - ${data.fullName}`,
     html,
   });
 };
 
 export const sendAIEngineInterestEmail = async (data: AIEngineInterest) => {
-  const subject = `AI Engine Interest: ${data.fullName}`;
   const templatePath = path.join(__dirname, '../../template/aiEngineInterestEmail.ejs');
   const html = await ejs.renderFile(templatePath, data);
 
   await sendEmail({
     to: process.env.MAIL_USER!,
-    subject,
+    subject:`Altmoney AI Engine Interest Submitted by ${data.fullName}`,
     html,
   });
 };

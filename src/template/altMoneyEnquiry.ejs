@@ -5,32 +5,57 @@
     <title>New Business Inquiry</title>
     <style>
       body {
-        font-family: Arial, sans-serif;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         color: #333;
-        padding: 20px;
+        background-color: #f7f9fc;
+        padding: 40px;
       }
+
+      .container {
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        padding: 30px;
+        max-width: 600px;
+        margin: auto;
+      }
+
       h2 {
         color: #007BFF;
+        margin-bottom: 20px;
+        text-align: center;
       }
+
       .info {
-        margin-bottom: 10px;
+        margin-bottom: 12px;
+        padding: 10px;
+        border-bottom: 1px solid #eee;
       }
+
       .label {
-        font-weight: bold;
+        font-weight: 600;
+        display: inline-block;
+        width: 180px;
+        color: #555;
+      }
+
+      .value {
+        color: #111;
       }
     </style>
   </head>
   <body>
-    <h2>📩 New Business Inquiry</h2>
-    
-    <div class="info"><span class="label">Full Name:</span> <%= fullName %></div>
-    <div class="info"><span class="label">Email:</span> <%= workEmail %></div>
-    <div class="info"><span class="label">Phone Number:</span> <%= phoneNumber %></div>
-    <div class="info"><span class="label">Company Name:</span> <%= companyName %></div>
-    <div class="info"><span class="label">Annual Turnover:</span> <%= annualTurnover %></div>
-    <div class="info"><span class="label">Industry:</span> <%= industry %></div>
-    <div class="info"><span class="label">Inquiry Type:</span> <%= inquiryType %></div>
-    <div class="info"><span class="label">Funding Requirement:</span> <%= fundingRequirement %></div>
-    <div class="info"><span class="label">Additional Details:</span> <%= additionalDetails %></div>
+    <div class="container">
+      <h2>📩 New Business Inquiry</h2>
+
+      <div class="info"><span class="label">Full Name:</span> <span class="value"><%= fullName %></span></div>
+      <div class="info"><span class="label">Email:</span> <span class="value"><%= workEmail %></span></div>
+      <div class="info"><span class="label">Phone Number:</span> <span class="value"><%= phoneNumber %></span></div>
+      <div class="info"><span class="label">Company Name:</span> <span class="value"><%= companyName %></span></div>
+      <div class="info"><span class="label">Industry:</span> <span class="value"><%= industry %></span></div>
+      <div class="info"><span class="label">Inquiry Type:</span> <span class="value"><%= inquiryType %></span></div>
+      <div class="info"><span class="label">Funding Requirement:</span> <span class="value"><%= fundingRequirement %></span></div>
+      <div class="info"><span class="label">Additional Details:</span> <span class="value"><%= additionalDetails %></span></div>
+    </div>
   </body>
 </html>
