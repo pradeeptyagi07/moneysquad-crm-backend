@@ -10,7 +10,10 @@ class UserActivityService {
         await CombinedUser.findByIdAndUpdate(userId, {
           $set: {
             lastSeen: new Date(),
-            role: 'partner', // Optional: only set if required
+           
+          },
+          $in:{
+             role: 'partner'
           },
         });
       }
