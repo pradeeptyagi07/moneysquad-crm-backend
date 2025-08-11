@@ -15,16 +15,16 @@ export interface ContactData {
 }
 
 export const sendContactEmail = async (data: ContactData) => {
-  const subject = `New Contact Form Submission from ${data.firstName} ${data.lastName}`;
 
   const templatePath = path.join(__dirname, '../template/contactEmail.ejs');
   const html = await ejs.renderFile(templatePath, data);
 
-  await sendEmail({
-    to: process.env.MAIL_USER!, // your email
-    subject: "",
-    html,
-  });
+await sendEmail({
+  to: process.env.MAIL_USER!, // your email
+  subject: `New Contact Form Submission from ${data.firstName} ${data.lastName}`,
+  html,
+});
+
 };
 
 
