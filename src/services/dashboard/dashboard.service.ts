@@ -494,65 +494,99 @@ export const dashboardService = {
             dayjs(lead.updatedAt).isBetween(prevMonthStart, prevMonthEnd, null, "[]")
         );
 
-        const totalLeadsIn: any = {
-            status: { $in: ["New", "Pending"] }
-        };
-
-        const totalLeads = await CombinedUser.find(totalLeadsIn);
-
-        const totalLeadsThisMonth = totalLeads.filter((lead) =>
-            dayjs(lead.updatedAt).isBetween(currentMonthStart, currentMonthEnd, null, '[]')
-        );
-
-        const totalLeadsPrevMonth = totalLeads.filter((lead) =>
-            dayjs(lead.updatedAt).isBetween(prevMonthStart, prevMonthEnd, null, "[]")
-        );
-
-        const timelines = await Timeline.find({
-            status: { $in: ["pending", "closed"] },
-            createdAt: { $gte: prevMonthStart, $lte: currentMonthEnd },
-        }).sort({ leadId: 1, createdAt: 1 });
-
-        const leadMap = new Map();
-
-        timelines.forEach((entry) => {
-            const { leadId, status, createdAt } = entry;
-            if (!leadMap.has(leadId)) {
-                leadMap.set(leadId, []);
-            }
-            leadMap.get(leadId).push({ status, createdAt });
+        const totalLeadsCurrentMonth = await CombinedUser.countDocuments({
+        _id: { $in: relatedLeadIds },
+        role: "lead",
+        status: { $nin: ["New", "Pending"] },
+        createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
+        ...totalRejectionLeads
         });
 
-        let prevMonthCount = 0;
-        let currentMonthCount = 0;
 
-        for (const [leadId, statusLogs] of leadMap.entries()) {
-            let pendingCount = 0;
-            let closedCount = 0;
-            let firstPendingDate = null;
-            let firstClosedDate = null;
+        const leadsCurrentMonth = await CombinedUser.find(
+        {
+            _id: { $in: relatedLeadIds },
+            role: "lead",
+            createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
+            ...totalRejectionLeads
+        },
+        { leadId: 1 } // only return leadId field
+        ).lean();
 
-            for (const { status, createdAt } of statusLogs) {
-                if (status === "pending") {
-                    pendingCount++;
-                    if (!firstPendingDate) firstPendingDate = createdAt;
-                }
-                if (status === "closed") {
-                    closedCount++;
-                    if (!firstClosedDate) firstClosedDate = createdAt;
-                }
+        const leadIds = leadsCurrentMonth.map(l => l.leadId);
+
+        // Step 2: Find in timelines collection where status is pending or closed
+        const leadsWithTwoTimelines = await Timeline.aggregate([
+        {
+            $match: {
+            leadId: { $in: leadIds },
+            status: { $in: ["pending", "closed"] },
+            createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd }
             }
+        },
+        {
+            $group: {
+            _id: "$leadId",
+            statuses: { $addToSet: "$status" }, // unique statuses
+            total: { $sum: 1 }
+            }
+        },
+        {
+            $match: {
+            total: 2,
+            statuses: { $all: ["pending", "closed"] } // must contain both
+            }
+        },
+        {
+            $count: "totalLeads"
+        }
+        ]);
+        const totalLeadWithstatusthisMonth = totalLeadsCurrentMonth + leadsWithTwoTimelines.length
 
-            // Only consider leads with exactly one pending and one closed,
-            // and where pending comes before closed
-            if (pendingCount === 1 && closedCount === 1 && firstPendingDate < firstClosedDate) {
-                if (firstClosedDate >= currentMonthStart && firstClosedDate <= currentMonthEnd) {
-                    currentMonthCount++;
-                } else if (firstClosedDate >= prevMonthStart && firstClosedDate <= prevMonthEnd) {
-                    prevMonthCount++;
-                }
+        // ===== Previous Month =====
+        const totalLeadsPrevMonth = await CombinedUser.countDocuments({
+        _id: { $in: relatedLeadIds },
+        role: "lead",
+        status: { $nin: ["New", "Pending"] },
+        createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd },
+        ...totalRejectionLeads
+        });
+
+        const leadsPrevMonthList  = await CombinedUser.find(
+        {
+            _id: { $in: relatedLeadIds },
+            role: "lead",
+            createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd },
+            ...totalRejectionLeads
+        },
+        { leadId: 1 }
+        ).lean();
+
+        const leadIdsPrev = leadsPrevMonthList.map(l => l.leadId);
+
+        const leadsWithTwoTimelinesPrev = await Timeline.aggregate([
+        {
+            $match: {
+            leadId: { $in: leadIdsPrev },
+            status: { $in: ["pending", "closed"] },
+            createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd }
+            }
+        },
+        {
+            $group: {
+            _id: "$leadId",
+            statuses: { $addToSet: "$status" },
+            total: { $sum: 1 }
+            }
+        },
+        {
+            $match: {
+            total: 2,
+            statuses: { $all: ["pending", "closed"] }
             }
         }
+        ]);
+
         const calculateRejectionRatio = (
             rejectedLeadCount: number,
             totalLeadCount: number
@@ -562,11 +596,13 @@ export const dashboardService = {
             const ratio = rejectedLeadCount / totalLeadCount * 100;
             return parseFloat(ratio.toFixed(2));
         };
-        const totalthismonth = currentMonthCount + totalLeadsThisMonth.length
-        const totalPrevmonth = prevMonthCount + totalLeadsPrevMonth.length
-        const rejectRationThisMonth = calculateRejectionRatio(totalRejectedThisMonth.length, totalthismonth);
-        const rejectRationPrevMonth = calculateRejectionRatio(totalRejectedPrevMonth.length, totalPrevmonth);
+        const totalLeadWithStatusPrevMonth =
+        totalLeadsPrevMonth + leadsWithTwoTimelinesPrev.length;
+        const rejectRationThisMonth = calculateRejectionRatio(totalRejectedThisMonth.length, totalLeadWithstatusthisMonth);
+        const rejectRationPrevMonth = calculateRejectionRatio(totalRejectedPrevMonth.length , totalLeadWithStatusPrevMonth);
         const rejectionRationDeltaPercent = rejectRationThisMonth - rejectRationPrevMonth;
+
+        
         //Rejection rate logic end---------------------
 
         //lead added logic start------------------------

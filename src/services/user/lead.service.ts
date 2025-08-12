@@ -155,18 +155,6 @@ export const leadService = {
             ...lead.pincode,
             [key]: data[key],
           };
-          break;
-        case "assignedTo":
-          console.log("lead.assignedTo", lead.assignedTo);
-          // Check if lead was never assigned before
-          if (lead.assignedTo === null || lead.assignedTo === undefined) {
-            // First time assignment
-            lead.assignedTo = data.assignedTo;
-            lead.status = "pending"; // set status only for new assignment
-          } else {
-            // Reassignment — keep the old status
-            lead.assignedTo = data.assignedTo;
-          }
 
           const entry = new Timeline({
             leadId: lead.leadId,
@@ -464,12 +452,14 @@ export const leadService = {
     }
 
     const alreadyAssigned = !!lead.assignedTo;
-
+    let getMessage;
     if (!alreadyAssigned) {
       lead.assignedTo = data.manager_assigned;
       lead.status = "pending";
+      getMessage = `Lead assigned by ${user?.role} (${user?.email})`
     } else {
       lead.assignedTo = data.manager_assigned;
+      getMessage = `Lead Reassigned by ${user?.role} (${user?.email})`
     }
 
     await lead.save();
@@ -478,7 +468,7 @@ export const leadService = {
       leadId: lead.leadId,
       applicantName: lead.applicantName,
       status: "pending",
-      message: `Lead assigned by ${user?.role} (${user?.email})`,
+      message: getMessage,
     });
 
     await entry.save();
