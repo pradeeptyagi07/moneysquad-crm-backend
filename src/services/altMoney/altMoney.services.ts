@@ -53,7 +53,7 @@ export const sendLoanInquiryEmail = async (data: LoanInquiryFormData) => {
   const html = await ejs.renderFile(templatePath, data);
 
   await sendEmail({
-    to: "process.env.MAIL_USER!",
+    to: process.env.MAIL_USER!,
     subject:`Altmoney Loan Inquiry - ${data.loanType} - ${data.fullName}`,
     html,
   });
