@@ -138,6 +138,8 @@ export const leadService = {
       lenderType: isPrivileged,
     };
 
+    let assignmentCreated = false; // track if we actually created the first assignment
+
     for (const key in data) {
       if (!editableFields[key]) continue;
 
@@ -145,28 +147,55 @@ export const leadService = {
         case "loanAmount":
           lead.loan.amount = data.loanAmount;
           break;
+
         case "loantType":
           lead.loan.type = data.loantType;
           break;
+
         case "pincode":
         case "city":
         case "state":
-          lead.pincode = {
-            ...lead.pincode,
-            [key]: data[key],
-          };
-
-          const entry = new Timeline({
-            leadId: lead.leadId,
-            applicantName: lead.applicantName,
-            status: "pending",
-            message: `Lead assigned to Manager by ${creatorUser.role} ${creatorUser.firstName} ${creatorUser.lastName}`,
-          });
-          await entry.save();
+          lead.pincode = { ...lead.pincode, [key]: data[key] };
           break;
+
+        case "assignedTo": {
+          console.log("lead.assignedTo", lead.assignedTo);
+
+          const hasExistingAssignee =
+            lead.assignedTo !== null &&
+            lead.assignedTo !== undefined &&
+            String(lead.assignedTo).trim() !== "";
+
+          const hasIncomingAssignee =
+            data.assignedTo !== null &&
+            data.assignedTo !== undefined &&
+            String(data.assignedTo).trim() !== "";
+
+          if (!hasExistingAssignee && hasIncomingAssignee) {
+            // First-time assignment
+            lead.assignedTo = data.assignedTo;
+            lead.status = "pending"; // Only on first assignment
+            assignmentCreated = true; // Track for timeline
+          }
+          // If already assigned, skip updating assignedTo and status
+          break;
+        }
+
         default:
           (lead as any)[key] = data[key];
       }
+    }
+
+    await lead.save();
+
+    // Write timeline ONLY when we created the first assignment
+    if (assignmentCreated) {
+      await new Timeline({
+        leadId: lead.leadId, // or lead._id depending on your schema
+        applicantName: lead.applicantName,
+        status: "pending",
+        message: `Lead assigned for the first time by ${creatorUser.role} ${creatorUser.firstName} ${creatorUser.lastName}`,
+      }).save();
     }
 
     console.log(
@@ -456,10 +485,10 @@ export const leadService = {
     if (!alreadyAssigned) {
       lead.assignedTo = data.manager_assigned;
       lead.status = "pending";
-      getMessage = `Lead assigned by ${user?.role} (${user?.email})`
+      getMessage = `Lead assigned by ${user?.role} (${user?.email})`;
     } else {
       lead.assignedTo = data.manager_assigned;
-      getMessage = `Lead Reassigned by ${user?.role} (${user?.email})`
+      getMessage = `Lead Re-assigned by ${user?.role} (${user?.email})`;
     }
 
     await lead.save();
@@ -488,8 +517,9 @@ export const leadService = {
 
     let messageData = "";
     if (creatorUser.role === "admin" || creatorUser.role === "manager") {
-      messageData = `Lead Status updated by ${creatorUser.role} ${creatorUser.firstName || ""
-        } ${creatorUser.lastName || ""}`.trim();
+      messageData = `Lead Status updated by ${creatorUser.role} ${
+        creatorUser.firstName || ""
+      } ${creatorUser.lastName || ""}`.trim();
       if (creatorUser.role === "manager" && creatorUser.managerId) {
         messageData += ` (${creatorUser.managerId})`;
       }
@@ -581,14 +611,15 @@ export const leadService = {
         },
         associate: associateUser
           ? {
-            name: `${associateUser.firstName || ""} ${associateUser.lastName || ""
+              name: `${associateUser.firstName || ""} ${
+                associateUser.lastName || ""
               }`.trim(),
-            associateDisplayId: associateUser.associateDisplayId || "",
-          }
+              associateDisplayId: associateUser.associateDisplayId || "",
+            }
           : {
-            name: "",
-            associateDisplayId: "",
-          },
+              name: "",
+              associateDisplayId: "",
+            },
         applicant: {
           name: lead.applicantName,
           business: lead.businessName || "",
