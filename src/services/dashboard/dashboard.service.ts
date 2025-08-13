@@ -142,7 +142,7 @@ const buildBaseQuery = async (params: BaseParams, userContext: UserContext): Pro
 };
 
 /** Get related lead IDs based on user role */
-const getRelatedLeadIds = async (userContext: UserContext): Promise<mongoose.Types.ObjectId[]> => {
+export const getRelatedLeadIds = async (userContext: UserContext): Promise<mongoose.Types.ObjectId[]> => {
     const { user } = userContext;
 
     switch (user.role) {
@@ -203,7 +203,7 @@ const getActiveLead = async (
 // ==================== CORE SERVICE FUNCTIONS ====================
 
 /** Get user context with validation */
-const getUserContext = async (userId: string): Promise<UserContext> => {
+export const getUserContext = async (userId: string): Promise<UserContext> => {
     const user = await CombinedUser.findById(userId);
     if (!user) {
         throw new Error("User not found");
@@ -516,32 +516,34 @@ export const dashboardService = {
         const leadIds = leadsCurrentMonth.map(l => l.leadId);
 
         // Step 2: Find in timelines collection where status is pending or closed
-        const leadsWithTwoTimelines = await Timeline.aggregate([
-        {
-            $match: {
-            leadId: { $in: leadIds },
-            status: { $in: ["pending", "closed"] },
-            createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd }
+        const leadsWithTwoOrThreeStatuses = await Timeline.aggregate([
+            {
+    $match: {
+      leadId: { $in: leadIds },
+      status: { $in: ["pending", "closed", "new lead"] },
+      createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd }
             }
         },
         {
             $group: {
             _id: "$leadId",
-            statuses: { $addToSet: "$status" }, // unique statuses
+            statuses: { $addToSet: "$status" },
             total: { $sum: 1 }
             }
         },
         {
             $match: {
-            total: 2,
-            statuses: { $all: ["pending", "closed"] } // must contain both
+            statuses: { $all: ["pending", "closed"] }, // must have both
+            $expr: {
+                $lte: [{ $size: "$statuses" }, 3] // allow max 3 unique statuses
+            }
             }
         },
         {
             $count: "totalLeads"
         }
         ]);
-        const totalLeadWithstatusthisMonth = totalLeadsCurrentMonth + leadsWithTwoTimelines.length
+        const totalLeadWithstatusthisMonth = totalLeadsCurrentMonth + leadsWithTwoOrThreeStatuses.length
 
         // ===== Previous Month =====
         const totalLeadsPrevMonth = await CombinedUser.countDocuments({

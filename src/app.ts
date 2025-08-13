@@ -28,7 +28,7 @@ import bankRoutes from "./routes/bank.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
 import altMoneyController from "./routes/altMoney.routes"
 
-import { expireLeadsBasedOnTimeline } from "./script/task";
+import { expireLeadsBasedOnTimeline, LeadsActiveStatusJob } from "./script/task";
 import { errorHandler } from "./middleware/error.middleware";
 import { lastSeenRouter } from "./routes/lastSeen.routes";
 
@@ -119,6 +119,17 @@ cron.schedule("0 0 * * *", async () => {
   console.log(`⏰ Running lead expiry cron job at ${now.toISOString()}`);
   await expireLeadsBasedOnTimeline(now);
 });
+(async () => {
+  const now = new Date();
+  await LeadsActiveStatusJob(now);
+})();
+
+// Schedule daily at midnight
+cron.schedule("0 0 * * *", async () => {
+  const now = new Date();
+  await LeadsActiveStatusJob(now);
+});
+
 
 
 // Attach Sentry Express error handler for capturing errors
