@@ -119,11 +119,6 @@ cron.schedule("0 0 * * *", async () => {
   console.log(`⏰ Running lead expiry cron job at ${now.toISOString()}`);
   await expireLeadsBasedOnTimeline(now);
 });
-(async () => {
-  const now = new Date();
-  await LeadsActiveStatusJob(now);
-})();
-
 // Schedule daily at midnight
 cron.schedule("0 0 * * *", async () => {
   const now = new Date();
