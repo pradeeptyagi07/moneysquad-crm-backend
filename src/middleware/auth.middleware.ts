@@ -1,21 +1,34 @@
 import { Request, Response, NextFunction } from "express";
 import { verifyToken } from "../utils/jwt";
+import { CombinedUser } from "../model/user/user.model";
 
-export const authMiddleware = (req: Request, res: Response, next: NextFunction): void => {
-    const token = req.headers.authorization?.split(" ")[1];
+export const authMiddleware = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) {
+    res.status(401).json({ error: "Access denied" });
+    return;
+  }
 
-    if (!token) {
-        res.status(401).json({ error: "Access denied" });
-        return; // Explicit return to avoid calling `next()`
+  try {
+    const decoded = verifyToken(token) as { userId: string; iat?: number; exp?: number };
+
+    //  Always read current status from DB
+    const user = await CombinedUser.findById(decoded.userId).select("role status");
+    if (!user) {
+      res.status(401).json({ error: "Invalid token" });
+      return;
     }
 
-    try {
-        const decoded = verifyToken(token);
-        console.log("decoded", decoded);
-        (req as any).user = decoded;
-        next(); // Proceed to next middleware/controller
-    } catch (error) {
-        res.status(401).json({ error: "Invalid token" });
-        return;
+    // Invalidate all requests from inactive managers
+    if (user.role === "manager" && user.status !== "active") {
+      res.status(401).json({ error: "Account is inactive" });
+      return;
     }
+
+    // attach for controllers that need it
+    (req as any).user = { ...decoded, role: user.role, status: user.status };
+    next();
+  } catch (error) {
+    res.status(401).json({ error: "Invalid token" });
+  }
 };

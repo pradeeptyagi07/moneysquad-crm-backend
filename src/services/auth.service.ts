@@ -2,22 +2,28 @@ import { CombinedUser } from "../model/user/user.model";
 import { hashPassword, verifyPassword } from "../utils/hash";
 import { generateOTP, generateRandomPassword } from "../utils/helper";
 import { generateToken } from "../utils/jwt";
-import { sendForgotPassword, sendOtp, } from "./common.service";
-
+import { sendForgotPassword, sendOtp } from "./common.service";
 
 export const authService = {
   async login(email: string, password: string) {
     const user = await CombinedUser.findOne({ email });
 
-    console.log("user", user)
+    console.log("user", user);
     if (!user) {
       throw new Error("Invalid credentials");
     }
 
     const isMatch = await verifyPassword(user.password, password);
-    console.log("isMatch", isMatch)
+    console.log("isMatch", isMatch);
     if (!isMatch) {
       throw new Error("Invalid credentials");
+    }
+
+    // Block inactive managers from logging in
+    if (user.role === "manager" && user.status !== "active") {
+      throw new Error(
+        "Your account is inactive. Please contact the administrator."
+      );
     }
 
     const token = generateToken(user.id);
@@ -29,7 +35,7 @@ export const authService = {
 
   async sendOtp(email: string) {
     const user = await CombinedUser.findOne({ email });
-    console.log("user", user)
+    console.log("user", user);
     if (!user) throw new Error("User not found");
 
     const otpCode = generateOTP();
@@ -40,7 +46,6 @@ export const authService = {
 
     await sendOtp(email, user.firstName || "User", otpCode);
   },
-
 
   async forgetPassword(email: string, otp: string) {
     const user = await CombinedUser.findOne({ email });
@@ -69,7 +74,11 @@ export const authService = {
     await sendForgotPassword(email, user.firstName || "User", newPassword);
   },
 
-  async resetPassword(userId: string, currentPassword: string, newPassword: string) {
+  async resetPassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string
+  ) {
     const user = await CombinedUser.findById(userId);
 
     if (!user) {
@@ -112,7 +121,13 @@ export const authService = {
     }
 
     // Any top-level fields
-    const topLevelFields = ['firstName', 'lastName', 'location', 'email', 'mobile'];
+    const topLevelFields = [
+      "firstName",
+      "lastName",
+      "location",
+      "email",
+      "mobile",
+    ];
     for (const field of topLevelFields) {
       if (updateData[field] !== undefined) {
         (user as any)[field] = updateData[field];
@@ -123,6 +138,5 @@ export const authService = {
 
     console.log("✅ User updated successfully:", user._id);
     return user;
-  }
-
+  },
 };

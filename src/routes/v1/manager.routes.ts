@@ -7,7 +7,7 @@ const router = express.Router();
 router.post('/', upload.none(), managerController.createManager);
 router.get('/', managerController.getAllManager);
 router.get('/:id', managerController.getByIdManager);
-router.put('/:id', managerController.updateManager);
+router.put("/:id", upload.none(), managerController.updateManager);
 router.delete('/:id', managerController.deleteManager);
 
 export default router;
