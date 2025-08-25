@@ -21,6 +21,9 @@ export async function expireLeadsBasedOnTimeline(today: Date) {
             ((lead.status === 'login' || lead.status === 'approved') && daysSinceUpdate >= 30)
         ) {
             lead.status = 'expired';
+            latestTimeline.status = 'expired';
+            latestTimeline.message = 'Lead status expired as lead was Inactive for To long'
+            await latestTimeline.save();
             await lead.save();
             console.log(`✅ Lead ${lead.leadId} expired. Previous status: ${lead.status}`);
         }

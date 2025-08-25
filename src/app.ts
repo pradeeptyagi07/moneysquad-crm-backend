@@ -118,13 +118,8 @@ cron.schedule("0 0 * * *", async () => {
   const now = new Date();
   console.log(`⏰ Running lead expiry cron job at ${now.toISOString()}`);
   await expireLeadsBasedOnTimeline(now);
-});
-// Schedule daily at midnight
-cron.schedule("0 0 * * *", async () => {
-  const now = new Date();
   await LeadsActiveStatusJob(now);
 });
-
 
 
 // Attach Sentry Express error handler for capturing errors
