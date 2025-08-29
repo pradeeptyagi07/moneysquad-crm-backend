@@ -102,6 +102,17 @@ const combinedUserSchema = new Schema<ICombinedUser>(
         },
 
         associateDisplayId: { type: String},
+        isArchived: {type: Boolean,default: false,
+                 required: function () {
+                return this.role === "lead";
+            },
+        },
+        archivedAt:{type: Date, default: null,
+                  required: function () {
+                   return this.role === "lead" && this.archivedAt === undefined;
+            },
+
+        }
     },
     { timestamps: true }
 );

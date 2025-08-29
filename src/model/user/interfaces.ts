@@ -1,6 +1,6 @@
 import { Document } from "mongoose";
 
-export type UserRole = "admin" | "partner" | "manager" | "user" | "associate";
+export type UserRole = "admin" | "partner" | "manager" | "user" | "associate" | "lead";
 export type UserStatus =
   | "active"
   | "inactive"
@@ -76,7 +76,8 @@ export interface ICombinedUser extends Document {
   lenderType?: string;
   assocaite_Lead_Id?: string;
   associateDisplayId?: string;
-
+  isArchived?: Boolean;
+  archivedAt?:Date | null;
   comments?: string;
   otp?: IOtp;
   createdAt?: Date;

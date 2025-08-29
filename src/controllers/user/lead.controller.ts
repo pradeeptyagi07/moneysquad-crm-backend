@@ -171,5 +171,14 @@ export const leadController = {
             res.status(400).json({ success: false, message: err.message });
         }
     },
+    async getAllArchivedLeads(req: Request, res: Response){
+        try {
+            const userId = (req as any).user.userId;
+            const lead = await leadService.getArchivedLeadById(userId);
+            res.status(200).json({ success: true, data: lead });
+        } catch (error: any) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
 
 };

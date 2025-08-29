@@ -28,7 +28,7 @@ import bankRoutes from "./routes/bank.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
 import altMoneyController from "./routes/altMoney.routes"
 
-import { expireLeadsBasedOnTimeline, LeadsActiveStatusJob } from "./script/task";
+import { expireLeadsBasedOnTimeline, LeadsActiveStatusJob, leadsBasedOnArchived } from "./script/task";
 import { errorHandler } from "./middleware/error.middleware";
 import { lastSeenRouter } from "./routes/lastSeen.routes";
 
@@ -89,7 +89,7 @@ app.use(
 );
 
 app.use(
-  ["/api/lead", "/api/associate", "/api/commission", "/api/offers", "/api/product-info", "/api/dashboard","/api/request","/api/offers/", "/api/support" ],
+  ["/api/lead", "/api/associate", "/api/commission", "/api/offers", "/api/product-info", "/api/dashboard", "/api/request", "/api/offers/", "/api/support"],
   lastSeenRouter
 );
 
@@ -119,6 +119,7 @@ cron.schedule("0 0 * * *", async () => {
   console.log(`⏰ Running lead expiry cron job at ${now.toISOString()}`);
   await expireLeadsBasedOnTimeline(now);
   await LeadsActiveStatusJob(now);
+  await leadsBasedOnArchived(now);
 });
 
 

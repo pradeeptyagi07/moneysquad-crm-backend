@@ -6,32 +6,32 @@ import { UserStatus } from "../model/user/interfaces";
 import mongoose from "mongoose";
 
 export async function expireLeadsBasedOnTimeline(today: Date) {
-    const allLeads = await CombinedUser.find({ role: 'lead' });
+  const allLeads = await CombinedUser.find({ role: 'lead' });
 
-    for (const lead of allLeads) {
-        const latestTimeline = await Timeline.findOne({ leadId: lead.leadId })
-            .sort({ createdAt: -1 });
+  for (const lead of allLeads) {
+    const latestTimeline = await Timeline.findOne({ leadId: lead.leadId })
+      .sort({ createdAt: -1 });
 
-        if (!latestTimeline) continue;
+    if (!latestTimeline) continue;
 
-        const daysSinceUpdate = Math.floor((today.getTime() - latestTimeline.createdAt.getTime()) / (1000 * 60 * 60 * 24));
+    const daysSinceUpdate = Math.floor((today.getTime() - latestTimeline.createdAt.getTime()) / (1000 * 60 * 60 * 24));
 
-        if (
-            (lead.status === 'pending' && daysSinceUpdate >= 60) ||
-            ((lead.status === 'login' || lead.status === 'approved') && daysSinceUpdate >= 30)
-        ) {
-            lead.status = 'expired';
-            latestTimeline.status = 'expired';
-            latestTimeline.message = 'Lead status expired as lead was Inactive for To long'
-            await latestTimeline.save();
-            await lead.save();
-            console.log(`✅ Lead ${lead.leadId} expired. Previous status: ${lead.status}`);
-        }
+    if (
+      (lead.status === 'pending' && daysSinceUpdate >= 60) ||
+      ((lead.status === 'login' || lead.status === 'approved') && daysSinceUpdate >= 30)
+    ) {
+      lead.status = 'expired';
+      latestTimeline.status = 'expired';
+      latestTimeline.message = 'Lead status expired as lead was Inactive for To long'
+      await latestTimeline.save();
+      await lead.save();
+      console.log(`✅ Lead ${lead.leadId} expired. Previous status: ${lead.status}`);
     }
+  }
 }
 export async function LeadsActiveStatusJob(today: Date) {
-const allPartners = await CombinedUser.find({ role: 'partner' });
-const sixtyDaysAgo = dayjs(today).subtract(60, "days").toDate();
+  const allPartners = await CombinedUser.find({ role: 'partner' });
+  const sixtyDaysAgo = dayjs(today).subtract(60, "days").toDate();
 
   for (const partner of allPartners) {
     try {
@@ -40,12 +40,12 @@ const sixtyDaysAgo = dayjs(today).subtract(60, "days").toDate();
 
       // Step 2: Get related lead IDs
       const relatedLeadIds = await getRelatedLeadIds(userContext);
-        console.log("relatedLeadIds raw:", relatedLeadIds);
-      
-        const hasRecentLead = await CombinedUser.find({
+      console.log("relatedLeadIds raw:", relatedLeadIds);
+
+      const hasRecentLead = await CombinedUser.find({
         _id: { $in: relatedLeadIds },
         createdAt: { $gte: sixtyDaysAgo }
-        });
+      });
 
       // Step 4: Update partner status
       partner.status = hasRecentLead.length > 0 ? ("active" as UserStatus) : ("inactive" as UserStatus);
@@ -53,5 +53,22 @@ const sixtyDaysAgo = dayjs(today).subtract(60, "days").toDate();
     } catch (err) {
       console.error(`Error processing partner ${partner._id}:`, err);
     }
+  }
 }
+
+export async function leadsBasedOnArchived(today: Date) {
+  const allLeads = await CombinedUser.find({ role: 'lead' });
+
+  for (const lead of allLeads) {
+    if (!lead.updatedAt) continue;
+    const daysSinceUpdate = Math.floor((today.getTime() - lead.updatedAt!.getTime()) / (1000 * 60 * 60 * 24));
+
+
+    if (daysSinceUpdate > 60) {
+      lead.isArchived = true;          
+      lead.archivedAt = new Date();    
+      await lead.save();
+    }
+
+  }
 }

@@ -202,6 +202,9 @@ export const leadService = {
       "Final lead object before saving:",
       JSON.stringify(lead, null, 2)
     );
+    
+    lead.isArchived = false;
+    lead.archivedAt = null;
 
     await lead.save();
 
@@ -275,6 +278,7 @@ export const leadService = {
 
   async getAllLeads(userID: string) {
     const user = await CombinedUser.findById(userID);
+    
 
     let filter: any = {};
     if (user?.role === "partner") {
@@ -285,11 +289,13 @@ export const leadService = {
       filter = { assocaite_Lead_Id: user._id };
     }
 
+    
     console.log("filter", filter);
 
     const leads = await CombinedUser.find(
       {
         role: "lead",
+        isArchived: false,
         ...filter,
       },
       {
@@ -490,7 +496,8 @@ export const leadService = {
       lead.assignedTo = data.manager_assigned;
       getMessage = `Lead Re-assigned by ${user?.role} (${user?.email})`;
     }
-
+    lead.isArchived = false;
+    lead.archivedAt = null;
     await lead.save();
 
     const entry = new Timeline({
@@ -554,7 +561,7 @@ export const leadService = {
       {
         _id: leadId,
         role: "lead",
-        status: existingLead.status, // ensure no one else changed it
+        status: existingLead.status // ensure no one else changed it       
       },
       {
         $set: updatePayload,
@@ -642,7 +649,7 @@ export const leadService = {
         throw new Error(`Unknown loan type "${loanTypeName}"`);
       }
       payout.lender.loan_id = loanTypeDoc._id.toString();
-
+     
       await payout.save();
     }
 
@@ -673,7 +680,10 @@ export const leadService = {
       rejectReason: data.rejectReason || undefined,
       rejectComment: data.comment || undefined,
     });
+    lead.isArchived = false;
+    lead.archivedAt = null;
 
+    await lead.save();
     await entry.save();
 
     return {
@@ -874,4 +884,94 @@ export const leadService = {
 
     return remarks;
   },
+  async getArchivedLeadById(userID: string) {
+    const user = await CombinedUser.findById(userID);
+    
+
+    let filter: any = {};
+    if (user?.role === "partner") {
+      filter = { partner_Lead_Id: userID };
+    } else if (user?.role === "manager") {
+      filter = { assignedTo: userID };
+    } else if (user?.role === "associate") {
+      filter = { assocaite_Lead_Id: user._id };
+    }
+
+    
+    console.log("filter", filter);
+
+    const leads = await CombinedUser.find(
+      {
+        role: "lead",
+        isArchived: true,
+        ...filter,
+      },
+      {
+        applicantName: 1,
+        applicantProfile: 1,
+        businessName: 1,
+        email: 1,
+        mobile: 1,
+        pincode: 1,
+        loan: 1,
+        comments: 1,
+        partner_Lead_Id: 1,
+        assocaite_Lead_Id: 1,
+        assignedTo: 1,
+        lenderType: 1,
+        leadId: 1,
+        createdAt: 1,
+        status: 1,
+      }
+    )
+      .sort({ updatedAt: -1 })
+      .populate({
+        path: "partner_Lead_Id",
+        select: "basicInfo.fullName partnerId",
+        strictPopulate: false,
+      })
+      .populate({
+        path: "assignedTo",
+        select: "managerId firstName lastName email mobile",
+        strictPopulate: false,
+      })
+      .populate({
+        path: "assocaite_Lead_Id",
+        select: "associateDisplayId firstName lastName",
+        strictPopulate: false,
+      });
+
+    const result = await Promise.all(
+      leads.map(async (lead) => {
+        const disbursed = await DisbursedForm.findOne({ leadUserId: lead._id });
+
+        const latestTimeline = await Timeline.findOne({
+          leadId: lead.leadId,
+        }).sort({ createdAt: -1 });
+
+        return {
+          id: lead._id,
+          applicantName: lead.applicantName,
+          applicantProfile: lead.applicantProfile,
+          businessName: lead.businessName,
+          email: lead.email,
+          mobile: lead.mobile,
+          pincode: lead.pincode,
+          comments: lead.comments,
+          loan: lead.loan,
+          lenderType: lead.lenderType || null,
+          partnerId: lead.partner_Lead_Id,
+          manager: lead.assignedTo || null,
+          associate: lead.assocaite_Lead_Id || null,
+          leadId: lead.leadId,
+          status: lead.status,
+          createdAt: lead.createdAt,
+          disbursedData: disbursed || null,
+          statusUpdatedAt: latestTimeline?.createdAt || null,
+        };
+      })
+    );
+
+    return result;
+  }
 };

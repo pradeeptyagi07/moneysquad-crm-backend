@@ -6,6 +6,7 @@ import { authMiddleware } from "../../middleware/auth.middleware";
 
 const router = express.Router();
 
+router.get("/archived", authMiddleware, leadController.getAllArchivedLeads);
 router.post("/create", authMiddleware, upload.none(), leadController.createLead);
 router.put("/update/:id", upload.none(), authMiddleware, leadController.editLead);
 router.post("/duplicate", authMiddleware, upload.none(), leadController.duplicateLead);
@@ -26,6 +27,7 @@ router.get("/timeline/:id", leadController.timeLine);
 
 router.get('/remarks/:id', leadController.getRemarksByLeadId);
 router.post("/create-remarks", authMiddleware, upload.none(), leadController.createRemarksById);
+
 
 
 
