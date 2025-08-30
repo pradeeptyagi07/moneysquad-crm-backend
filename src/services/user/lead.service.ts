@@ -203,8 +203,7 @@ export const leadService = {
       JSON.stringify(lead, null, 2)
     );
     
-    lead.isArchived = false;
-    lead.archivedAt = null;
+
 
     await lead.save();
 
