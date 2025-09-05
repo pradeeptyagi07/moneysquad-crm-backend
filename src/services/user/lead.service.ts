@@ -106,139 +106,185 @@ export const leadService = {
     };
   },
 
-  async editLead(userId: string, leadId: string, data: any) {
-    const creatorUser = await CombinedUser.findById(userId);
-    if (!creatorUser) {
-      throw new Error("Unauthorized: Creator user not found.");
+async editLead(userId: string, leadId: string, data: any) {
+  const creatorUser = await CombinedUser.findById(userId);
+  if (!creatorUser) {
+    throw new Error("Unauthorized: Creator user not found.");
+  }
+
+  const lead = await CombinedUser.findOne({ _id: leadId, role: "lead" });
+  if (!lead) {
+    throw new Error("Lead not found.");
+  }
+
+  const isPrivileged = ["admin", "manager"].includes(creatorUser.role);
+
+  // ---------- LENDER COLLISION CHECK (only when setting/changing lender) ----------
+  // derive the "next" values after this edit (without mutating yet)
+  const nextMobile = data.mobile ?? lead.mobile ?? null;
+  const nextEmail = data.email ?? lead.email ?? null;
+  const nextLoanType = (data.loantType ?? lead.loan?.type) ?? null;
+
+  // only check when lender is being set/changed by a privileged role
+  const isSettingLender =
+    Object.prototype.hasOwnProperty.call(data, "lenderType") &&
+    data.lenderType !== lead.lenderType &&
+    isPrivileged;
+
+  const nextLenderType = isSettingLender ? data.lenderType : lead.lenderType;
+
+  if (isSettingLender && nextLenderType && nextLoanType && (nextMobile || nextEmail)) {
+    const identity: any[] = [];
+    if (nextMobile) identity.push({ mobile: nextMobile });
+    if (nextEmail) identity.push({ email: nextEmail });
+
+    // find other leads for SAME person + SAME loan type + SAME lender (not archived, not closed/expired)
+    const candidates = await CombinedUser.find({
+      _id: { $ne: lead._id },
+      role: "lead",
+      isArchived: { $ne: true },
+      lenderType: nextLenderType,
+      "loan.type": nextLoanType,
+      status: { $nin: ["closed", "expired"] }, // treat these as not active
+      $or: identity,
+    })
+      .select("_id leadId status updatedAt createdAt")
+      .lean();
+
+    // business rule: block if that other lead was updated within last 30 days
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 days
+    const conflict = candidates.find((doc) => {
+      const lastUpdated = new Date((doc as any).updatedAt ?? (doc as any).createdAt);
+      return lastUpdated >= cutoff;
+    });
+
+    if (conflict) {
+      const err: any = new Error("LENDER_CONFLICT");
+      err.status = 409;
+      err.details = {
+        message:
+          "An active lead with the same mobile/email, loan type, and lender exists (updated within 30 days).",
+        conflictLeadId: (conflict as any).leadId || String((conflict as any)._id),
+      };
+      throw err;
     }
+  }
+  // ---------- END LENDER COLLISION CHECK ----------
 
-    console.log("role", creatorUser.role);
+  const editableFields: Record<string, boolean> = {
+    applicantName: true,
+    applicantProfile: true,
+    businessName: true,
+    mobile: true,
+    email: true,
+    pincode: true,
+    city: true,
+    state: true,
+    loantType: true,      // keep existing key
+    loanAmount: true,
+    comments: true,
+    partnerId: true,
+    assignedTo: isPrivileged,
+    lenderType: isPrivileged,
+  };
 
-    const lead = await CombinedUser.findOne({ _id: leadId, role: "lead" });
-    if (!lead) {
-      throw new Error("Lead not found.");
-    }
+  let assignmentCreated = false; // track if we actually created the first assignment
 
-    const isPrivileged = ["admin", "manager"].includes(creatorUser.role);
+  for (const key in data) {
+    if (!editableFields[key]) continue;
 
-    const editableFields: Record<string, boolean> = {
-      applicantName: true,
-      applicantProfile: true,
-      businessName: true,
-      mobile: true,
-      email: true,
-      pincode: true,
-      city: true,
-      state: true,
-      loantType: true,
-      loanAmount: true,
-      comments: true,
-      partnerId: true,
-      assignedTo: isPrivileged,
-      lenderType: isPrivileged,
-    };
+    switch (key) {
+      case "loanAmount":
+        lead.loan.amount = data.loanAmount;
+        break;
 
-    let assignmentCreated = false; // track if we actually created the first assignment
+      case "loantType":
+        lead.loan.type = data.loantType;
+        break;
 
-    for (const key in data) {
-      if (!editableFields[key]) continue;
+      case "pincode":
+      case "city":
+      case "state":
+        lead.pincode = { ...lead.pincode, [key]: data[key] };
+        break;
 
-      switch (key) {
-        case "loanAmount":
-          lead.loan.amount = data.loanAmount;
-          break;
+      case "assignedTo": {
+        const hasExistingAssignee =
+          lead.assignedTo !== null &&
+          lead.assignedTo !== undefined &&
+          String(lead.assignedTo).trim() !== "";
 
-        case "loantType":
-          lead.loan.type = data.loantType;
-          break;
+        const hasIncomingAssignee =
+          data.assignedTo !== null &&
+          data.assignedTo !== undefined &&
+          String(data.assignedTo).trim() !== "";
 
-        case "pincode":
-        case "city":
-        case "state":
-          lead.pincode = { ...lead.pincode, [key]: data[key] };
-          break;
-
-        case "assignedTo": {
-          console.log("lead.assignedTo", lead.assignedTo);
-
-          const hasExistingAssignee =
-            lead.assignedTo !== null &&
-            lead.assignedTo !== undefined &&
-            String(lead.assignedTo).trim() !== "";
-
-          const hasIncomingAssignee =
-            data.assignedTo !== null &&
-            data.assignedTo !== undefined &&
-            String(data.assignedTo).trim() !== "";
-
-          if (!hasExistingAssignee && hasIncomingAssignee) {
-            // First-time assignment
-            lead.assignedTo = data.assignedTo;
-            lead.status = "pending"; // Only on first assignment
-            assignmentCreated = true; // Track for timeline
-          }
-          // If already assigned, skip updating assignedTo and status
-          break;
+        if (!hasExistingAssignee && hasIncomingAssignee) {
+          // First-time assignment
+          lead.assignedTo = data.assignedTo;
+          lead.status = "pending"; // Only on first assignment
+          assignmentCreated = true; // Track for timeline
         }
-
-        default:
-          (lead as any)[key] = data[key];
+        // If already assigned, skip updating assignedTo and status
+        break;
       }
+
+      default:
+        (lead as any)[key] = data[key];
     }
+  }
 
-    await lead.save();
+  await lead.save();
 
-    // Write timeline ONLY when we created the first assignment
-    if (assignmentCreated) {
-      await new Timeline({
-        leadId: lead.leadId, // or lead._id depending on your schema
-        applicantName: lead.applicantName,
-        status: "pending",
-        message: `Lead assigned for the first time by ${creatorUser.role} ${creatorUser.firstName} ${creatorUser.lastName}`,
-      }).save();
-    }
+  // Write timeline ONLY when we created the first assignment
+  if (assignmentCreated) {
+    await new Timeline({
+      leadId: lead.leadId, // or lead._id depending on your schema
+      applicantName: lead.applicantName,
+      status: "pending",
+      message: `Lead assigned for the first time by ${creatorUser.role} ${creatorUser.firstName} ${creatorUser.lastName}`,
+    }).save();
+  }
 
-    console.log(
-      "Final lead object before saving:",
-      JSON.stringify(lead, null, 2)
-    );
-    
+  // (keep your debug log if needed)
+  // console.log("Final lead object before saving:", JSON.stringify(lead, null, 2));
 
+  await lead.save();
 
-    await lead.save();
+  // Reflect certain edits in PartnerPayout
+  const { applicantName, businessName, loantType, lenderType } = data;
+  if (applicantName || businessName || loantType || lenderType) {
+    const payouts = await PartnerPayoutModel.find({ lead_Id: leadId });
 
-    const { applicantName, businessName, loantType, lenderType } = data;
-    if (applicantName || businessName || loantType || lenderType) {
-      const payouts = await PartnerPayoutModel.find({ lead_Id: leadId });
+    for (const payout of payouts) {
+      let payoutModified = false;
 
-      for (const payout of payouts) {
-        let payoutModified = false;
-
-        if (applicantName && payout.applicant.name !== applicantName) {
-          payout.applicant.name = applicantName;
-          payoutModified = true;
-        }
-
-        if (businessName && payout.applicant.business !== businessName) {
-          payout.applicant.business = businessName;
-          payoutModified = true;
-        }
-
-        if (loantType && payout.lender.loanType !== loantType) {
-          payout.lender.loanType = loantType;
-          payoutModified = true;
-        }
-
-        if (lenderType && payout.lender.name !== lenderType) {
-          payout.lender.name = lenderType;
-          payoutModified = true;
-        }
-
-        if (payoutModified) await payout.save();
+      if (applicantName && payout.applicant.name !== applicantName) {
+        payout.applicant.name = applicantName;
+        payoutModified = true;
       }
+
+      if (businessName && payout.applicant.business !== businessName) {
+        payout.applicant.business = businessName;
+        payoutModified = true;
+      }
+
+      if (loantType && payout.lender.loanType !== loantType) {
+        payout.lender.loanType = loantType;
+        payoutModified = true;
+      }
+
+      if (lenderType && payout.lender.name !== lenderType) {
+        payout.lender.name = lenderType;
+        payoutModified = true;
+      }
+
+      if (payoutModified) await payout.save();
     }
-    return lead;
-  },
+  }
+
+  return lead;
+},
 
   async createDuplicateLead(userId: string, leadData: any) {
     const creatorUser = await CombinedUser.findById(userId);

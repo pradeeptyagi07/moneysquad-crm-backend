@@ -25,19 +25,38 @@ export const leadController = {
         }
     },
 
-    editLead: async (req: Request, res: Response) => {
-        try {
-            const userId = (req as any).user.userId;
-            const { id } = req.params;
-            const formData = unflattenObject(req.body);
-            const validation = editLeadSchema.safeParse(formData);
+  async editLead(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = (req as any).user.userId;
+      const { id } = req.params;
+      const formData = unflattenObject(req.body);
+      const parsed = editLeadSchema.safeParse(formData);
 
-            const updatedLead = await leadService.editLead(userId, id, validation.data);
-            res.status(200).json({ success: true, lead: updatedLead });
-        } catch (error: any) {
-            res.status(400).json({ success: false, message: error.message });
-        }
-    },
+      if (!parsed.success) {
+        res.status(400).json({
+          success: false,
+          message: "Invalid payload",
+          errors: parsed.error.flatten(),
+        });
+        return;
+      }
+
+      const updatedLead = await leadService.editLead(userId, id, parsed.data);
+      res.status(200).json({ success: true, lead: updatedLead });
+      return;
+    } catch (error: any) {
+      if (error?.status === 409 && error?.message === "LENDER_CONFLICT") {
+        res.status(409).json({
+          success: false,
+          error: "LENDER_CONFLICT",
+          ...(error.details || {}),
+        });
+        return;
+      }
+      res.status(400).json({ success: false, message: error?.message || "EDIT_FAILED" });
+      return;
+    }
+  },
 
     async duplicateLead(req: Request, res: Response) {
         try {
