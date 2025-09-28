@@ -17,13 +17,7 @@ router.post(
     { name: 'gstCertificate', maxCount: 1 },
     { name: 'aditional', maxCount: 10 },
   ]),
-  async (req, res, next) => {
-    try {
-      await partnerController.createPartner(req, res);
-    } catch (err) {
-      next(err);
-    }
-  }
+  partnerController.createPartner
 );
 
 // Retrieve all partners
