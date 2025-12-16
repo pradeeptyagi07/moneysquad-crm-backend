@@ -41,6 +41,16 @@ const app = express();
 app.set('trust proxy', true);
 
 
+const corsOptions = {
+  origin: ["https://app.moneysquad.in", "https://moneysquad.in"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+  credentials: true,
+  maxAge: 86400,
+};
+
+app.use(cors(corsOptions));
+
 // — Standard security & parsing middleware —
 app.use(
   helmet({
@@ -62,16 +72,6 @@ app.use(
     crossOriginResourcePolicy: { policy: "cross-origin" },
   })
 );
-
-const corsOptions = {
-  origin: ["https://app.moneysquad.in", "https://moneysquad.in"],
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
-  credentials: true,
-  maxAge: 86400,
-};
-
-app.use(cors(corsOptions));
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
