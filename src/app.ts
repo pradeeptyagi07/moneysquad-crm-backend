@@ -64,7 +64,7 @@ app.use(
 );
 
 const corsOptions = {
-  origin: true,
+  origin: ["https://app.moneysquad.in", "https://moneysquad.in"],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
   credentials: true,
