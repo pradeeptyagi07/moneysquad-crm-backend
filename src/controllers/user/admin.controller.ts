@@ -15,14 +15,22 @@ export const adminController = {
     },
 
     getAllAdmins: async (_req: Request, res: Response) => {
-        const admins = await adminService.getAllAdmins();
-        res.status(200).json({ success: true, data: admins });
+        try {
+            const admins = await adminService.getAllAdmins();
+            res.status(200).json({ success: true, data: admins });
+        } catch (error: any) {
+            res.status(500).json({ success: false, message: error.message });
+        }
     },
 
     getAdminById: async (req: Request, res: Response) => {
-        const admin = await adminService.getAdminById(req.params.id);
-        //if (!admin) return res.status(404).json({ success: false, message: "Admin not found" });
-        res.status(200).json({ success: true, data: admin });
+        try {
+            const admin = await adminService.getAdminById(req.params.id);
+            //if (!admin) return res.status(404).json({ success: false, message: "Admin not found" });
+            res.status(200).json({ success: true, data: admin });
+        } catch (error: any) {
+            res.status(400).json({ success: false, message: error.message });
+        }
     },
 
     updateAdmin: async (req: Request, res: Response) => {
@@ -37,8 +45,12 @@ export const adminController = {
     },
 
     deleteAdmin: async (req: Request, res: Response) => {
-        const deleted = await adminService.deleteAdmin(req.params.id);
-        //if (!deleted) return res.status(404).json({ success: false, message: "Admin not found" });
-        res.status(200).json({ success: true, message: "Admin deleted" });
+        try {
+            const deleted = await adminService.deleteAdmin(req.params.id);
+            //if (!deleted) return res.status(404).json({ success: false, message: "Admin not found" });
+            res.status(200).json({ success: true, message: "Admin deleted" });
+        } catch (error: any) {
+            res.status(400).json({ success: false, message: error.message });
+        }
     },
 };

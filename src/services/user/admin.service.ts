@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { CombinedUser } from "../../model/user/user.model";
 import { hashPassword } from "../../utils/hash";
 import { generateRandomPassword } from "../../utils/helper";
@@ -25,12 +26,15 @@ export const adminService = {
         return await CombinedUser.find({ role: "admin" });
     },
     getAdminById: async (id: string) => {
+        if (!mongoose.Types.ObjectId.isValid(id)) return null;
         return await CombinedUser.findOne({ _id: id, role: "admin" });
     },
     updateAdmin: async (id: string, data: any) => {
+        if (!mongoose.Types.ObjectId.isValid(id)) return null;
         return await CombinedUser.findOneAndUpdate({ _id: id, role: "admin" }, data, { new: true });
     },
     deleteAdmin: async (id: string) => {
+        if (!mongoose.Types.ObjectId.isValid(id)) return null;
         return await CombinedUser.findOneAndDelete({ _id: id, role: "admin" });
     },
 };

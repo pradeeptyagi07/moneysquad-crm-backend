@@ -6,9 +6,11 @@ import { loginSchema } from "../validation/auth.validator";
 export const authController = {
   async login(req: Request, res: Response) {
     try {
+      console.log("Login attempt received:", req.body.email);
       const { email, password } = loginSchema.parse(req.body);
       const { token, user } = await authService.login(email, password);
-  
+      console.log("Login successful for:", email);
+
       res.status(200).json({
         success: true,
         message: "Login successful",

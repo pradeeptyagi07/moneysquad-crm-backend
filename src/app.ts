@@ -42,12 +42,18 @@ app.set('trust proxy', true);
 
 
 const corsOptions = {
-  origin: ["https://app.moneysquad.in", "https://moneysquad.in"],
+  origin: ["https://app.moneysquad.in", "https://moneysquad.in", "http://localhost:3000", "http://localhost:5173", process.env.CLIENT_URL || ""],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
   credentials: true,
   maxAge: 86400,
 };
+
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  console.log(`Origin: ${req.headers.origin}`);
+  next();
+});
 
 app.use(cors(corsOptions));
 
